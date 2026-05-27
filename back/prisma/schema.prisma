@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  name             String
+  email            String   @unique
+  passwordHash     String
+  handle           String?  @unique
+  avatarUrl        String?
+  location         String?
+  readingGoal      Int      @default(24)
+  booksReadThisYear Int     @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  books            Book[]
+  loansGiven       Loan[]       @relation("LoanGiver")
+  loansReceived    Loan[]       @relation("LoanReceiver")
+  friendshipsA     Friendship[] @relation("FriendA")
+  friendshipsB     Friendship[] @relation("FriendB")
+  sentRequests     FriendRequest[] @relation("Sender")
+  receivedRequests FriendRequest[] @relation("Receiver")
+}
+
+model Book {
+  id            String     @id @default(cuid())
+  title         String
+  author        String
+  year          Int
+  pages         Int        @default(0)
+  rating        Float      @default(0)
+  description   String     @default("")
+  coverUrl      String?
+  googleBooksId String?
+  tags          String[]
+  status        ReadStatus @default(WISHLIST)
+  addedAt       DateTime   @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  updatedAt     DateTime   @updatedAt
+
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loans         Loan[]
+}
+
+enum ReadStatus {
+  READING
+  READ
+  WISHLIST
+}
+
+model Loan {
+  id          String      @id @default(cuid())
+  direction   LoanDirection
+  since       DateTime    @default(now())
+  dueDate     DateTime?
+  returned    Boolean     @default(false)
+  returnedAt  DateTime?
+  createdAt   DateTime    @default(now())
+
+  bookId      String
+  book        Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  giverId     String
+  giver       User        @relation("LoanGiver", fields: [giverId], references: [id])
+  receiverId  String
+  receiver    User        @relation("LoanReceiver", fields: [receiverId], references: [id])
+}
+
+enum LoanDirection {
+  OUT
+  IN
+}
+
+model Friendship {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userAId   String
+  userBId   String
+  userA     User     @relation("FriendA", fields: [userAId], references: [id])
+  userB     User     @relation("FriendB", fields: [userBId], references: [id])
+
+  @@unique([userAId, userBId])
+}
+
+model FriendRequest {
+  id         String              @id @default(cuid())
+  status     FriendRequestStatus @default(PENDING)
+  createdAt  DateTime            @default(now())
+  senderId   String
+  receiverId String
+  sender     User                @relation("Sender", fields: [senderId], references: [id])
+  receiver   User                @relation("Receiver", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}

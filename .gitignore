@@ -1,0 +1,32 @@
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+
+# ── Flutter ───────────────────────────────────────────────────────────────────
+front/build/
+front/.dart_tool/
+front/.flutter-plugins
+front/.flutter-plugins-dependencies
+front/.packages
+front/android/.gradle/
+front/android/local.properties
+front/android/key.properties
+front/*.keystore
+front/ios/.symlinks/
+front/ios/Flutter/Flutter.framework
+front/ios/Flutter/Flutter.podspec
+front/ios/Pods/
+front/.idea/
+front/*.iml
+
+# ── Bun / Node ────────────────────────────────────────────────────────────────
+back/node_modules/
+back/dist/
+
+# ── OS / IDE ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

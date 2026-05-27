@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: readme_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  back:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/readme_db
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      PORT: 3000
+    ports:
+      - "3000:3000"
+      - "5555:5555"
+    depends_on:
+      - db
+    volumes:
+      - ./back/src:/app/src
+      - ./back/prisma:/app/prisma
+
+volumes:
+  postgres_data:
