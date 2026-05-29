@@ -2,8 +2,12 @@
 .env
 .env.local
 .env.production
+.env.staging
+back/.env
+back/.env.*
+!back/.env.example
 
-# ── Flutter ───────────────────────────────────────────────────────────────────
+# ── Flutter / Android signing ─────────────────────────────────────────────────
 front/build/
 front/.dart_tool/
 front/.flutter-plugins
@@ -12,7 +16,10 @@ front/.packages
 front/android/.gradle/
 front/android/local.properties
 front/android/key.properties
+front/android/app/key.properties
 front/*.keystore
+front/**/*.jks
+front/**/*.keystore
 front/ios/.symlinks/
 front/ios/Flutter/Flutter.framework
 front/ios/Flutter/Flutter.podspec
@@ -20,9 +27,21 @@ front/ios/Pods/
 front/.idea/
 front/*.iml
 
+# iOS / Apple ──────────────────────────────────────────────────────────────────
+*.p8
+AuthKey_*.p8
+front/ios/GoogleService-Info.plist
+front/macos/GoogleService-Info.plist
+
+# Android / Firebase ───────────────────────────────────────────────────────────
+front/android/app/google-services.json
+
 # ── Bun / Node ────────────────────────────────────────────────────────────────
 back/node_modules/
 back/dist/
+
+# ── Docker local overrides ────────────────────────────────────────────────────
+docker-compose.override.yml
 
 # ── OS / IDE ──────────────────────────────────────────────────────────────────
 .DS_Store

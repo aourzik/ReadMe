@@ -3,9 +3,9 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: readme_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-readme_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-readme_db}
     ports:
       - "5432:5432"
     volumes:
@@ -17,12 +17,12 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:password@db:5432/readme_db
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-readme_dev_password}@db:5432/${POSTGRES_DB:-readme_db}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env}
       PORT: 3000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:3001}
     ports:
       - "3000:3000"
-      - "5555:5555"
     depends_on:
       - db
     volumes:

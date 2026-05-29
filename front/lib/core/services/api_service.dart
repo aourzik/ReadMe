@@ -9,7 +9,10 @@ import '../models/message.dart';
 import '../models/notification.dart';
 
 class ApiService {
-  static const _baseUrl = 'http://10.0.2.2:3000/api';
+  static const _baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://10.0.2.2:3000/api',
+  );
 
   late final Dio _dio;
   final _storage = const FlutterSecureStorage();
