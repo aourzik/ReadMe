@@ -7,7 +7,7 @@ import '../../../core/models/book.dart';
 import '../../../core/models/loan.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/widgets/book_card.dart';
-import '../../loans/screens/loans_screen.dart';
+import '../../../core/providers/app_providers.dart';
 import 'friends_screen.dart';
 
 final friendBooksProvider = FutureProvider.family<List<Book>, String>(

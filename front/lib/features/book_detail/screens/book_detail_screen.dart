@@ -7,8 +7,7 @@ import '../../../core/models/book.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/widgets/book_cover.dart';
-import '../../library/screens/library_screen.dart';
-import '../../loans/screens/loans_screen.dart';
+import '../../../core/providers/app_providers.dart';
 
 final _bookDetailProvider = FutureProvider.family<Book, String>(
   (ref, id) => apiService.getBook(id),

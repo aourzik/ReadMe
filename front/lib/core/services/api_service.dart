@@ -134,6 +134,10 @@ class ApiService {
     await _dio.patch('/loans/$loanId/return');
   }
 
+  Future<void> remindLoan(String loanId) async {
+    await _dio.post('/loans/$loanId/remind');
+  }
+
   Future<Loan> borrowBook({
     required String bookId,
     required String giverId,
@@ -295,9 +299,8 @@ class ApiService {
     return User.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<User> updateProfile(Map<String, dynamic> data) async {
-    final res = await _dio.patch('/users/me', data: data);
-    return User.fromJson(res.data as Map<String, dynamic>);
+  Future<void> updateProfile(Map<String, dynamic> data) async {
+    await _dio.patch('/users/me', data: data);
   }
 }
 

@@ -35,9 +35,11 @@ class AppNotification {
 
   String get title {
     switch (type) {
-      case 'loan_request':  return '${fromUserName.split(' ').first} veut emprunter un livre';
-      case 'loan_accepted': return 'Prêt accepté par ${fromUserName.split(' ').first}';
-      case 'loan_declined': return 'Prêt refusé par ${fromUserName.split(' ').first}';
+      case 'loan_request':     return '${fromUserName.split(' ').first} veut emprunter un livre';
+      case 'loan_accepted':    return 'Prêt accepté par ${fromUserName.split(' ').first}';
+      case 'loan_declined':    return 'Prêt refusé par ${fromUserName.split(' ').first}';
+      case 'loan_reminder':    return '${fromUserName.split(' ').first} te rappelle de rendre son livre';
+      case 'loan_returned':    return '${fromUserName.split(' ').first} a rendu ton livre';
       case 'message_received': return 'Message de ${fromUserName.split(' ').first}';
       default: return 'Nouvelle notification';
     }
@@ -45,9 +47,11 @@ class AppNotification {
 
   String get subtitle {
     switch (type) {
-      case 'loan_request':  return bookTitle != null ? '« $bookTitle »' : '';
-      case 'loan_accepted': return bookTitle != null ? '« $bookTitle »' : '';
-      case 'loan_declined': return bookTitle != null ? '« $bookTitle »' : '';
+      case 'loan_request':     return bookTitle != null ? '« $bookTitle »' : '';
+      case 'loan_accepted':    return bookTitle != null ? '« $bookTitle »' : '';
+      case 'loan_declined':    return bookTitle != null ? '« $bookTitle »' : '';
+      case 'loan_reminder':    return bookTitle != null ? '« $bookTitle »' : '';
+      case 'loan_returned':    return bookTitle != null ? '« $bookTitle »' : '';
       case 'message_received': return 'Appuie pour répondre';
       default: return '';
     }

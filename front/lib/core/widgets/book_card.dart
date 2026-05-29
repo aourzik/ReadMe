@@ -9,6 +9,7 @@ class BookCard extends StatelessWidget {
   final Book book;
   final bool isDark;
   final VoidCallback? onTap;
+  final VoidCallback? onMarkRead;
   final bool compact;
 
   const BookCard({
@@ -16,6 +17,7 @@ class BookCard extends StatelessWidget {
     required this.book,
     this.isDark = false,
     this.onTap,
+    this.onMarkRead,
     this.compact = false,
   });
 
@@ -50,64 +52,83 @@ class BookCard extends StatelessWidget {
           children: [
             Padding(
               padding: EdgeInsets.all(pad),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── Couverture ──
-                  BookCover(book: book, width: coverW, height: coverH, isDark: isDark),
-                  SizedBox(width: pad),
-                  // ── Info ──
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Titre
-                        Text(
-                          book.title,
-                          style: AppText.displayBook(italic: true, color: inkColor),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        // Auteur · Année
-                        Text(
-                          '${book.author} · ${book.year}',
-                          style: AppText.label(color: inkMuted),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        // Description (cachée en mode compact)
-                        if (!compact) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            book.description,
-                            style: AppText.body(size: 11.5, color: inkSoft).copyWith(height: 1.4),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        // Tags + rating
-                        Row(
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      BookCover(book: book, width: coverW, height: coverH, isDark: isDark),
+                      SizedBox(width: pad),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (book.tags.isNotEmpty) ...[
-                              Flexible(child: _Tag(label: book.tags[0], surfAlt: surfAlt, inkSoft: inkSoft)),
+                            Text(
+                              book.title,
+                              style: AppText.displayBook(italic: true, color: inkColor),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${book.author} · ${book.year}',
+                              style: AppText.label(color: inkMuted),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (!compact) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                book.description,
+                                style: AppText.body(size: 11.5, color: inkSoft).copyWith(height: 1.4),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ],
-                            if (book.tags.length > 1) ...[
-                              const SizedBox(width: 6),
-                              Flexible(child: _Tag(label: book.tags[1], surfAlt: surfAlt, inkSoft: inkSoft)),
-                            ],
-                            const Spacer(),
-                            _RatingBadge(rating: book.rating, accent: accentStrong, isDark: isDark),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                if (book.tags.isNotEmpty)
+                                  Flexible(child: _Tag(label: book.tags[0], surfAlt: surfAlt, inkSoft: inkSoft)),
+                                if (book.tags.length > 1) ...[
+                                  const SizedBox(width: 6),
+                                  Flexible(child: _Tag(label: book.tags[1], surfAlt: surfAlt, inkSoft: inkSoft)),
+                                ],
+                                const Spacer(),
+                                _RatingBadge(rating: book.rating, accent: accentStrong, isDark: isDark),
+                              ],
+                            ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                  if (onMarkRead != null) ...[
+                    SizedBox(height: pad * 0.8),
+                    GestureDetector(
+                      onTap: onMarkRead,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: surfAlt,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.check_rounded, size: 13, color: inkSoft),
+                          const SizedBox(width: 6),
+                          Text('J\'ai terminé ce livre',
+                              style: AppText.body(size: 12, color: inkSoft)
+                                  .copyWith(fontWeight: FontWeight.w600)),
+                        ]),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            // Badge prêt (correctement dans un Stack)
+            // Badge prêt
             if (book.lentTo != null)
               Positioned(
                 top: pad, right: pad,

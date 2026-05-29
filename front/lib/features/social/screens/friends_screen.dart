@@ -8,7 +8,7 @@ import '../../../core/models/book.dart';
 import '../../../core/models/activity.dart';
 import '../../../core/models/book_club.dart';
 import '../../../core/services/api_service.dart';
-import '../../library/screens/library_screen.dart';
+import '../../../core/providers/app_providers.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 

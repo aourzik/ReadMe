@@ -6,7 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/models/book.dart';
 import '../../../core/services/api_service.dart';
-import '../../library/screens/library_screen.dart';
+import '../../../core/providers/app_providers.dart';
 import '../../../core/services/google_books_service.dart';
 import '../../../core/widgets/book_cover.dart';
 

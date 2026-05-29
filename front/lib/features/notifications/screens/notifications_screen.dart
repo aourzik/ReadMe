@@ -6,8 +6,6 @@ import '../../../core/theme/theme_provider.dart';
 import '../../../core/models/notification.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/providers/app_providers.dart';
-import '../../loans/screens/loans_screen.dart';
-import '../../library/screens/library_screen.dart';
 
 
 class NotificationsScreen extends ConsumerStatefulWidget {
@@ -296,6 +294,8 @@ class _NotifCardState extends State<_NotifCard> {
       case 'loan_request':     return Icons.swap_horiz_rounded;
       case 'loan_accepted':    return Icons.check_circle_outline_rounded;
       case 'loan_declined':    return Icons.cancel_outlined;
+      case 'loan_reminder':    return Icons.schedule_rounded;
+      case 'loan_returned':    return Icons.assignment_return_rounded;
       case 'message_received': return Icons.chat_bubble_outline_rounded;
       default:                 return Icons.notifications_none_rounded;
     }

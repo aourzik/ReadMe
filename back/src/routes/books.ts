@@ -73,22 +73,19 @@ export const bookRoutes = new Elysia({ prefix: "/books" })
     if (!existing) { set.status = 404; throw new Error("Livre introuvable"); }
 
     const data: any = { ...body };
-    if (body.status) data.status = body.status.toUpperCase();
-    if (body.status === "READ" && !existing.finishedAt) {
+    const statusUpper = body.status?.toUpperCase();
+    if (statusUpper) data.status = statusUpper;
+    if (statusUpper === "READ" && !existing.finishedAt) {
       data.finishedAt = new Date();
-      await prisma.user.update({
-        where: { id: userId },
-        data: { booksReadThisYear: { increment: 1 } },
-      });
     }
-    if (body.status === "READING" && !existing.startedAt) {
+    if (statusUpper === "READING" && !existing.startedAt) {
       data.startedAt = new Date();
     }
 
     const book = await prisma.book.update({ where: { id: params.id }, data });
 
     // Activités automatiques
-    if (body.status === "READ" && !existing.finishedAt) {
+    if (statusUpper === "READ" && !existing.finishedAt) {
       await prisma.activity.create({ data: { type: "BOOK_FINISHED", userId, bookId: book.id } });
     } else if (body.rating != null && body.rating > 0 && existing.rating === 0) {
       await prisma.activity.create({ data: { type: "BOOK_RATED", userId, bookId: book.id } });

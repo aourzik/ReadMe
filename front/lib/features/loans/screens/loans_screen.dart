@@ -4,9 +4,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/models/loan.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/providers/app_providers.dart';
 import '../../../core/widgets/book_cover.dart';
-
-final loansProvider = FutureProvider<List<Loan>>((ref) => apiService.getLoans());
 
 class LoansScreen extends ConsumerStatefulWidget {
   const LoansScreen({super.key});
@@ -115,6 +114,17 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       ink: ink, inkSoft: inkSoft, inkMuted: inkMuted,
                       surface: surface, border: border, surfAlt: surfAlt,
                       accent: accent, accentStrong: accentStrong, accentInk: accentInk,
+                      onRendre: () {
+                        ref.invalidate(loansProvider);
+                        ref.invalidate(borrowedLoansProvider);
+                        ref.invalidate(booksProvider);
+                        ref.invalidate(unreadNotifCountProvider);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('« ${loan.book.title} » marqué comme rendu.'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 3),
+                        ));
+                      },
                     );
                   },
                 ),
@@ -203,90 +213,131 @@ class _ToggleBtn extends StatelessWidget {
   }
 }
 
-class _LoanCard extends StatelessWidget {
+class _LoanCard extends StatefulWidget {
   final Loan loan;
   final bool isOut, isDark;
   final Color ink, inkSoft, inkMuted, surface, border, surfAlt, accent, accentStrong, accentInk;
+  final VoidCallback onRendre;
 
   const _LoanCard({required this.loan, required this.isOut, required this.isDark,
       required this.ink, required this.inkSoft, required this.inkMuted,
       required this.surface, required this.border, required this.surfAlt,
-      required this.accent, required this.accentStrong, required this.accentInk});
+      required this.accent, required this.accentStrong, required this.accentInk,
+      required this.onRendre});
+
+  @override
+  State<_LoanCard> createState() => _LoanCardState();
+}
+
+class _LoanCardState extends State<_LoanCard> {
+  bool _loading = false;
+
+  Future<void> _relancer() async {
+    setState(() => _loading = true);
+    try {
+      await apiService.remindLoan(widget.loan.id);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Rappel envoyé à ${widget.loan.partner.name.split(' ').first}.'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), behavior: SnackBarBehavior.floating));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _rendre() async {
+    setState(() => _loading = true);
+    try {
+      await apiService.returnLoan(widget.loan.id);
+      widget.onRendre();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), behavior: SnackBarBehavior.floating));
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final remaining = loan.daysRemaining;
+    final loan = widget.loan;
     final overdue = loan.isOverdue;
-    final urgent = loan.isUrgent;
+    final urgent  = loan.isUrgent;
 
     final statusColor = overdue ? AppColors.statusOverdue
-        : urgent ? accentStrong
-        : inkMuted;
+        : urgent ? widget.accentStrong
+        : widget.inkMuted;
 
-    String statusText;
+    final String statusText;
     if (overdue) {
       statusText = 'En retard';
-    } else if (remaining != null) {
-      statusText = 'Encore $remaining jours';
+    } else if (loan.dueDate != null) {
+      statusText = 'Retour le ${_formatDate(loan.dueDate!)}';
     } else {
-      statusText = 'Sans limite';
+      statusText = '∞';
     }
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: surface, borderRadius: AppRadius.cardLg,
-        border: Border.all(color: border, width: 0.5),
-        boxShadow: AppShadows.soft(dark: isDark),
+        color: widget.surface, borderRadius: AppRadius.cardLg,
+        border: Border.all(color: widget.border, width: 0.5),
+        boxShadow: AppShadows.soft(dark: widget.isDark),
       ),
       child: Column(children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          BookCover(book: loan.book, width: 70, height: 105, isDark: isDark),
+          BookCover(book: loan.book, width: 70, height: 105, isDark: widget.isDark),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(statusText, style: AppText.eyebrow(color: statusColor)),
             const SizedBox(height: 4),
             Text(loan.book.title, style: TextStyle(fontFamily: 'CormorantGaramond',
                 fontStyle: FontStyle.italic, fontWeight: FontWeight.w500,
-                fontSize: 18, color: ink, height: 1.1, letterSpacing: -0.15)),
+                fontSize: 18, color: widget.ink, height: 1.1, letterSpacing: -0.15)),
             const SizedBox(height: 2),
-            Text(loan.book.author, style: AppText.body(size: 11.5, color: inkMuted)),
+            Text(loan.book.author, style: AppText.body(size: 11.5, color: widget.inkMuted)),
             const SizedBox(height: 10),
             Row(children: [
-              CircleAvatar(radius: 11, backgroundColor: accent,
+              CircleAvatar(radius: 11, backgroundColor: widget.accent,
                   child: Text(loan.partner.name.split(' ').map((w) => w[0]).take(2).join(''),
                       style: TextStyle(fontFamily: 'CormorantGaramond', fontSize: 9,
-                          fontStyle: FontStyle.italic, color: accentInk))),
+                          fontStyle: FontStyle.italic, color: widget.accentInk))),
               const SizedBox(width: 8),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${isOut ? 'Chez' : 'Emprunté à'} ${loan.partner.name.split(' ').first}',
-                    style: AppText.body(size: 11.5, color: inkSoft).copyWith(fontWeight: FontWeight.w600)),
+                Text('${widget.isOut ? 'Chez' : 'Emprunté à'} ${loan.partner.name.split(' ').first}',
+                    style: AppText.body(size: 11.5, color: widget.inkSoft).copyWith(fontWeight: FontWeight.w600)),
                 Text('Depuis le ${_formatDate(loan.since)}',
-                    style: AppText.body(size: 10, color: inkMuted)),
+                    style: AppText.body(size: 10, color: widget.inkMuted)),
               ])),
             ]),
           ])),
         ]),
         const SizedBox(height: 14),
-        // Progress bar + action
         Row(children: [
           Expanded(child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: loan.progressRatio,
-              backgroundColor: surfAlt,
-              valueColor: AlwaysStoppedAnimation<Color>(urgent ? accentStrong : ink),
+              backgroundColor: widget.surfAlt,
+              valueColor: AlwaysStoppedAnimation<Color>(urgent ? widget.accentStrong : widget.ink),
               minHeight: 4,
             ),
           )),
           const SizedBox(width: 10),
           GestureDetector(
-            onTap: () {},
+            onTap: _loading ? null : (widget.isOut ? _relancer : _rendre),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(999)),
-              child: Text(isOut ? 'Relancer' : 'Rendre',
-                  style: AppText.body(size: 11, color: accentInk).copyWith(fontWeight: FontWeight.w600)),
+              decoration: BoxDecoration(color: widget.accent, borderRadius: BorderRadius.circular(999)),
+              child: _loading
+                  ? SizedBox(width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentInk))
+                  : Text(widget.isOut ? 'Relancer' : 'Rendre',
+                      style: AppText.body(size: 11, color: widget.accentInk)
+                          .copyWith(fontWeight: FontWeight.w600)),
             ),
           ),
         ]),

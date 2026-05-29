@@ -17,6 +17,7 @@ model User {
   location         String?
   readingGoal      Int      @default(24)
   booksReadThisYear Int     @default(0)
+  favoriteGenres   String[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -53,6 +54,8 @@ enum NotifType {
   LOAN_REQUEST
   LOAN_ACCEPTED
   LOAN_DECLINED
+  LOAN_REMINDER
+  LOAN_RETURNED
   MESSAGE_RECEIVED
 }
 

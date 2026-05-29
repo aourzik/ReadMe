@@ -177,16 +177,49 @@ export const loanRoutes = new Elysia({ prefix: "/loans" })
     return { declined: true };
   })
 
+  // POST /api/loans/:id/remind — le prêteur relance l'emprunteur
+  .post("/:id/remind", async ({ userId, params, set }) => {
+    const loan = await prisma.loan.findFirst({
+      where: { id: params.id, giverId: userId, status: "ACTIVE" },
+      include: { book: true },
+    });
+    if (!loan) { set.status = 404; throw new Error("Prêt introuvable"); }
+
+    await prisma.appNotification.create({
+      data: {
+        type:       "LOAN_REMINDER",
+        userId:     loan.receiverId,
+        fromUserId: userId,
+        loanId:     loan.id,
+        bookTitle:  loan.book.title,
+      },
+    });
+
+    return { reminded: true };
+  })
+
   // PATCH /api/loans/:id/return
   .patch("/:id/return", async ({ userId, params, set }) => {
     const loan = await prisma.loan.findFirst({
       where: { id: params.id, OR: [{ giverId: userId }, { receiverId: userId }] },
+      include: { book: true },
     });
     if (!loan) { set.status = 404; throw new Error("Prêt introuvable"); }
 
     await prisma.loan.update({
       where: { id: params.id },
       data: { returned: true, returnedAt: new Date() },
+    });
+
+    // Notifier le prêteur que le livre est rendu
+    await prisma.appNotification.create({
+      data: {
+        type:       "LOAN_RETURNED",
+        userId:     loan.giverId,
+        fromUserId: userId,
+        loanId:     loan.id,
+        bookTitle:  loan.book.title,
+      },
     });
 
     return { returned: true };
