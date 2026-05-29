@@ -6,7 +6,7 @@ class FilterChipRow extends StatelessWidget {
   final String active;
   final ValueChanged<String> onChange;
 
-  static const filters = ['Tout', 'En cours', 'Lus', 'Souhaités', 'Prêtés'];
+  static const filters = ['Tout', 'En cours', 'Lus', 'Souhaités', 'Prêtés', 'Empruntés'];
 
   const FilterChipRow({
     super.key,

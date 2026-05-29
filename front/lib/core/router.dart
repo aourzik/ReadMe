@@ -10,6 +10,12 @@ import '../features/book_detail/screens/book_detail_screen.dart';
 import '../features/add_book/screens/add_book_screen.dart';
 import '../features/social/screens/friends_screen.dart';
 import '../features/social/screens/friend_library_screen.dart';
+import '../features/social/screens/add_friend_screen.dart';
+import '../features/social/screens/create_book_club_screen.dart';
+import '../features/social/screens/book_club_detail_screen.dart';
+import '../features/messaging/screens/messages_screen.dart';
+import '../features/messaging/screens/chat_screen.dart';
+import '../features/notifications/screens/notifications_screen.dart';
 import '../features/loans/screens/loans_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
 import 'widgets/main_shell.dart';
@@ -36,9 +42,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
 
       // ── Full-screen detail pages (pas de nav bar) ──
-      GoRoute(path: '/library/add',       builder: (c, s) => const AddBookScreen()),
-      GoRoute(path: '/library/book/:id',  builder: (c, s) => BookDetailScreen(bookId: s.pathParameters['id']!)),
-      GoRoute(path: '/friends/:userId',   builder: (c, s) => FriendLibraryScreen(userId: s.pathParameters['userId']!)),
+      GoRoute(path: '/library/add',           builder: (c, s) => const AddBookScreen()),
+      GoRoute(path: '/library/book/:id',      builder: (c, s) => BookDetailScreen(bookId: s.pathParameters['id']!)),
+      GoRoute(path: '/friends/add',           builder: (c, s) => const AddFriendScreen()),
+      GoRoute(path: '/friends/bookclub/new',  builder: (c, s) => const CreateBookClubScreen()),
+      GoRoute(path: '/friends/bookclub/:id',  builder: (c, s) => BookClubDetailScreen(clubId: s.pathParameters['id']!)),
+      GoRoute(path: '/friends/:userId',       builder: (c, s) => FriendLibraryScreen(userId: s.pathParameters['userId']!)),
+      GoRoute(path: '/notifications',          builder: (c, s) => const NotificationsScreen()),
+      GoRoute(path: '/messages',              builder: (c, s) => const MessagesScreen()),
+      GoRoute(path: '/messages/:partnerId',   builder: (c, s) => ChatScreen(
+        partnerId:   s.pathParameters['partnerId']!,
+        partnerName: s.extra as String? ?? '',
+      )),
 
       // ── Main shell (bottom tab bar) ──
       ShellRoute(

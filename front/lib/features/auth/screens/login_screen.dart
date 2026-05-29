@@ -4,6 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/services/api_service.dart';
+import '../../library/screens/library_screen.dart';
+import '../../loans/screens/loans_screen.dart';
+import '../../../core/providers/app_providers.dart';
+import '../../profile/screens/profile_screen.dart';
+import '../../social/screens/friends_screen.dart';
 
 final _loginLoadingProvider = StateProvider<bool>((ref) => false);
 final _loginErrorProvider   = StateProvider<String?>((ref) => null);
@@ -24,6 +29,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.read(_loginErrorProvider.notifier).state = null;
     try {
       await apiService.login(email: _emailCtrl.text, password: _pwCtrl.text);
+      ref.invalidate(meProvider);
+      ref.invalidate(booksProvider);
+      ref.invalidate(loansProvider);
+      ref.invalidate(borrowedLoansProvider);
+      ref.invalidate(notificationsProvider);
+      ref.invalidate(unreadNotifCountProvider);
+      ref.invalidate(friendsListProvider);
+      ref.invalidate(friendActivityProvider);
+      ref.invalidate(bookClubsProvider);
+      ref.invalidate(pendingRequestsProvider);
       if (mounted) context.go('/library');
     } catch (e) {
       ref.read(_loginErrorProvider.notifier).state = 'Email ou mot de passe incorrect.';

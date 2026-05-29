@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/models/book.dart';
+import '../../../core/models/loan.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/widgets/book_card.dart';
 import '../../../core/widgets/book_grid_item.dart';
 import '../../../core/widgets/filter_chip_row.dart';
 import '../../../core/widgets/library_top_bar.dart';
+import '../../../core/providers/app_providers.dart';
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
@@ -25,11 +27,13 @@ class LibraryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeState = ref.watch(themeProvider);
-    final isDark     = themeState.isDark;
-    final layout     = ref.watch(layoutProvider);
-    final filter     = ref.watch(filterProvider);
-    final booksAsync = ref.watch(booksProvider);
+    final themeState      = ref.watch(themeProvider);
+    final isDark          = themeState.isDark;
+    final layout          = ref.watch(layoutProvider);
+    final filter          = ref.watch(filterProvider);
+    final booksAsync      = ref.watch(booksProvider);
+    final unreadAsync     = ref.watch(unreadNotifCountProvider);
+    final borrowedAsync   = ref.watch(borrowedLoansProvider);
 
     final bg       = isDark ? AppColors.bgDark : AppColors.bgLight;
     final ink      = isDark ? AppColors.inkDark : AppColors.inkLight;
@@ -45,6 +49,7 @@ class LibraryScreen extends ConsumerWidget {
         loading: () => _buildSkeleton(isDark),
         error: (e, _) => Center(child: Text('Erreur: $e')),
         data: (books) {
+          final borrowed = borrowedAsync.valueOrNull ?? [];
           // Filtrage
           final filtered = _filterBooks(books, filter);
           final stats = (
@@ -66,6 +71,11 @@ class LibraryScreen extends ConsumerWidget {
                   reading: stats.reading,
                   lent: stats.lent,
                   onAdd: () => context.push('/library/add'),
+                  unreadCount: unreadAsync.valueOrNull ?? 0,
+                  onBell: () async {
+                    await context.push('/notifications');
+                    ref.invalidate(unreadNotifCountProvider);
+                  },
                 ),
               ),
 
@@ -88,49 +98,51 @@ class LibraryScreen extends ConsumerWidget {
 
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-              // Count + layout toggle
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Text(
-                        '${filtered.length} résultat${filtered.length > 1 ? 's' : ''}',
-                        style: AppText.body(size: 11.5, color: inkMuted).copyWith(letterSpacing: 0.2),
-                      ),
-                      const Spacer(),
-                      // Layout toggle
-                      Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: surfAlt,
-                          borderRadius: BorderRadius.circular(999),
+              // Count + layout toggle (masqué pour "Empruntés")
+              if (filter != 'Empruntés')
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Text(
+                          '${filtered.length} résultat${filtered.length > 1 ? 's' : ''}',
+                          style: AppText.body(size: 11.5, color: inkMuted).copyWith(letterSpacing: 0.2),
                         ),
-                        child: Row(
-                          children: [
-                            _LayoutToggleButton(
-                              icon: Icons.view_list_rounded,
-                              active: layout == LibraryLayout.list,
-                              isDark: isDark,
-                              onTap: () => ref.read(layoutProvider.notifier).state = LibraryLayout.list,
-                            ),
-                            _LayoutToggleButton(
-                              icon: Icons.grid_view_rounded,
-                              active: layout == LibraryLayout.grid,
-                              isDark: isDark,
-                              onTap: () => ref.read(layoutProvider.notifier).state = LibraryLayout.grid,
-                            ),
-                          ],
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: surfAlt,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            children: [
+                              _LayoutToggleButton(
+                                icon: Icons.view_list_rounded,
+                                active: layout == LibraryLayout.list,
+                                isDark: isDark,
+                                onTap: () => ref.read(layoutProvider.notifier).state = LibraryLayout.list,
+                              ),
+                              _LayoutToggleButton(
+                                icon: Icons.grid_view_rounded,
+                                active: layout == LibraryLayout.grid,
+                                isDark: isDark,
+                                onTap: () => ref.read(layoutProvider.notifier).state = LibraryLayout.grid,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
               const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
-              // Book list or grid
-              if (layout == LibraryLayout.list)
+              // Contenu principal
+              if (filter == 'Empruntés')
+                _BorrowedSection(isDark: isDark, loans: borrowed)
+              else if (layout == LibraryLayout.list)
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   sliver: SliverList.separated(
@@ -224,6 +236,101 @@ class _SearchBar extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _BorrowedSection extends StatelessWidget {
+  final bool isDark;
+  final List<Loan> loans;
+  const _BorrowedSection({required this.isDark, required this.loans});
+
+  @override
+  Widget build(BuildContext context) {
+    final inkMuted = isDark ? AppColors.inkMutedDark : AppColors.inkMutedLight;
+    final ink      = isDark ? AppColors.inkDark : AppColors.inkLight;
+    final surface  = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
+    final surfAlt  = isDark ? AppColors.surfaceAltDark : AppColors.surfaceAltLight;
+    final border   = isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08);
+    final accent   = isDark ? AppColors.accentRoseDark : AppColors.accentRoseLight;
+    final accentInk= isDark ? AppColors.accentRoseInkDark : AppColors.accentRoseInkLight;
+
+    if (loans.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Text('Aucun livre emprunté pour l\'instant.',
+              style: AppText.body(size: 13, color: inkMuted)),
+        ),
+      );
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      sliver: SliverList.separated(
+        itemCount: loans.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, i) {
+          final loan = loans[i];
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: surface, borderRadius: AppRadius.card,
+              border: Border.all(color: border, width: 0.5),
+              boxShadow: AppShadows.soft(dark: isDark),
+            ),
+            child: Row(children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: loan.book.coverUrl != null
+                    ? Image.network(loan.book.coverUrl!, width: 44, height: 66, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _CoverPlaceholder(isDark: isDark))
+                    : _CoverPlaceholder(isDark: isDark),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(loan.book.title, style: TextStyle(fontFamily: 'CormorantGaramond',
+                    fontStyle: FontStyle.italic, fontSize: 15, color: ink, height: 1.1)),
+                const SizedBox(height: 2),
+                Text(loan.book.author, style: AppText.body(size: 11.5, color: inkMuted)),
+                const SizedBox(height: 6),
+                Row(children: [
+                  CircleAvatar(radius: 9, backgroundColor: accent,
+                      child: Text(
+                        loan.partner.name.split(' ').map((w) => w[0]).take(2).join(''),
+                        style: TextStyle(fontFamily: 'CormorantGaramond',
+                            fontSize: 8, fontStyle: FontStyle.italic, color: accentInk),
+                      )),
+                  const SizedBox(width: 6),
+                  Text('de ${loan.partner.name.split(' ').first}',
+                      style: AppText.body(size: 11, color: inkMuted)),
+                  if (loan.dueDate != null) ...[
+                    const SizedBox(width: 8),
+                    Text('· jusqu\'au ${_formatDate(loan.dueDate!)}',
+                        style: AppText.body(size: 11,
+                            color: loan.isOverdue ? AppColors.statusOverdue
+                                : loan.isUrgent ? AppColors.statusWishlist
+                                : inkMuted)),
+                  ],
+                ]),
+              ])),
+            ]),
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+}
+
+class _CoverPlaceholder extends StatelessWidget {
+  final bool isDark;
+  const _CoverPlaceholder({required this.isDark});
+  @override
+  Widget build(BuildContext context) {
+    final surfAlt = isDark ? AppColors.surfaceAltDark : AppColors.surfaceAltLight;
+    return Container(width: 44, height: 66, color: surfAlt);
   }
 }
 

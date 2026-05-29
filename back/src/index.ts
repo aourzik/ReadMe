@@ -6,6 +6,9 @@ import { bookRoutes } from "./routes/books";
 import { loanRoutes } from "./routes/loans";
 import { friendRoutes } from "./routes/friends";
 import { userRoutes } from "./routes/users";
+import { bookClubRoutes } from "./routes/bookclubs";
+import { messageRoutes } from "./routes/messages";
+import { notificationRoutes } from "./routes/notifications";
 
 const app = new Elysia()
   .use(cors({
@@ -26,6 +29,9 @@ const app = new Elysia()
       .use(loanRoutes)
       .use(friendRoutes)
       .use(userRoutes)
+      .use(bookClubRoutes)
+      .use(messageRoutes)
+      .use(notificationRoutes)
   )
   .listen(process.env.PORT || 3000);
 

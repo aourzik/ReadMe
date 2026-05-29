@@ -7,6 +7,8 @@ class LibraryTopBar extends StatelessWidget {
   final int reading;
   final int lent;
   final VoidCallback onAdd;
+  final VoidCallback? onBell;
+  final int unreadCount;
 
   const LibraryTopBar({
     super.key,
@@ -15,6 +17,8 @@ class LibraryTopBar extends StatelessWidget {
     required this.reading,
     required this.lent,
     required this.onAdd,
+    this.onBell,
+    this.unreadCount = 0,
   });
 
   @override
@@ -64,10 +68,42 @@ class LibraryTopBar extends StatelessWidget {
               ),
               const Spacer(),
               // Bell
-              SizedBox(
-                width: 38,
-                height: 38,
-                child: Icon(Icons.notifications_none_rounded, size: 18, color: ink),
+              GestureDetector(
+                onTap: onBell,
+                child: SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Center(child: Icon(Icons.notifications_none_rounded, size: 18, color: ink)),
+                      if (unreadCount > 0)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: accent,
+                              shape: unreadCount < 10 ? BoxShape.circle : BoxShape.rectangle,
+                              borderRadius: unreadCount >= 10 ? BorderRadius.circular(999) : null,
+                            ),
+                            child: Text(
+                              unreadCount > 99 ? '99+' : '$unreadCount',
+                              style: TextStyle(
+                                fontFamily: 'CormorantGaramond',
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: accentInk,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(width: 6),
               // Add

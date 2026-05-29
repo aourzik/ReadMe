@@ -5,17 +5,15 @@ import { prisma } from "../utils/prisma";
 export const loanRoutes = new Elysia({ prefix: "/loans" })
   .use(authMiddleware())
 
-  // GET /api/loans
+  // GET /api/loans — seulement les prêts ACTIVE
   .get("/", async ({ userId, query }) => {
     const where: any = {
       OR: [{ giverId: userId }, { receiverId: userId }],
       returned: false,
+      status: "ACTIVE",
     };
-    if (query.direction) {
-      where.direction = query.direction.toUpperCase();
-      if (query.direction === "out") { where.OR = undefined; where.giverId = userId; }
-      if (query.direction === "in")  { where.OR = undefined; where.receiverId = userId; }
-    }
+    if (query.direction === "out") { where.OR = undefined; where.giverId    = userId; }
+    if (query.direction === "in")  { where.OR = undefined; where.receiverId = userId; }
 
     const loans = await prisma.loan.findMany({
       where,
@@ -36,12 +34,9 @@ export const loanRoutes = new Elysia({ prefix: "/loans" })
     query: t.Object({ direction: t.Optional(t.String()) }),
   })
 
-  // POST /api/loans
+  // POST /api/loans — prêter un livre directement (giver = toi, status = ACTIVE)
   .post("/", async ({ userId, body, set }) => {
-    // Vérifier que le livre appartient à l'utilisateur
-    const book = await prisma.book.findFirst({
-      where: { id: body.bookId, userId },
-    });
+    const book = await prisma.book.findFirst({ where: { id: body.bookId, userId } });
     if (!book) { set.status = 404; throw new Error("Livre introuvable"); }
 
     const loan = await prisma.loan.create({
@@ -50,15 +45,10 @@ export const loanRoutes = new Elysia({ prefix: "/loans" })
         giverId:    userId,
         receiverId: body.partnerId,
         direction:  "OUT",
+        status:     "ACTIVE",
         dueDate:    body.dueDate ? new Date(body.dueDate) : null,
       },
       include: { book: true, giver: true, receiver: true },
-    });
-
-    // Marquer le livre comme prêté
-    await prisma.book.update({
-      where: { id: body.bookId },
-      data: { status: "READING" }, // ou custom field lentTo
     });
 
     return {
@@ -77,13 +67,120 @@ export const loanRoutes = new Elysia({ prefix: "/loans" })
     }),
   })
 
+  // POST /api/loans/borrow — demander un emprunt (PENDING + notif au propriétaire)
+  .post("/borrow", async ({ userId, body, set }) => {
+    const book = await prisma.book.findFirst({
+      where: { id: body.bookId, userId: body.giverId },
+    });
+    if (!book) { set.status = 404; throw new Error("Livre introuvable"); }
+
+    const loan = await prisma.loan.create({
+      data: {
+        bookId:     body.bookId,
+        giverId:    body.giverId,
+        receiverId: userId,
+        direction:  "OUT",
+        status:     "PENDING",
+      },
+      include: { book: true, giver: true, receiver: true },
+    });
+
+    // Notifier le propriétaire du livre
+    await prisma.appNotification.create({
+      data: {
+        type:       "LOAN_REQUEST",
+        userId:     body.giverId,
+        fromUserId: userId,
+        loanId:     loan.id,
+        bookTitle:  book.title,
+      },
+    });
+
+    return {
+      id:        loan.id,
+      status:    "pending",
+      direction: "in",
+      since:     loan.since.toISOString(),
+      book:      serializeBook(loan.book),
+      partner:   serializeUser(loan.giver),
+    };
+  }, {
+    body: t.Object({
+      bookId:  t.String(),
+      giverId: t.String(),
+    }),
+  })
+
+  // PATCH /api/loans/:id/accept — le propriétaire accepte le prêt
+  .patch("/:id/accept", async ({ userId, params, body, set }) => {
+    const loan = await prisma.loan.findFirst({
+      where: { id: params.id, giverId: userId, status: "PENDING" },
+      include: { book: true },
+    });
+    if (!loan) { set.status = 404; throw new Error("Demande introuvable"); }
+
+    const dueDate = body.dueDays ? new Date(Date.now() + body.dueDays * 86400000) : null;
+
+    await prisma.loan.update({
+      where: { id: params.id },
+      data: { status: "ACTIVE", dueDate },
+    });
+
+    // Notifier l'emprunteur
+    await prisma.appNotification.create({
+      data: {
+        type:       "LOAN_ACCEPTED",
+        userId:     loan.receiverId,
+        fromUserId: userId,
+        loanId:     loan.id,
+        bookTitle:  loan.book.title,
+      },
+    });
+
+    // Supprimer la notif LOAN_REQUEST (elle a été traitée)
+    await prisma.appNotification.deleteMany({
+      where: { loanId: params.id, type: "LOAN_REQUEST", userId },
+    });
+
+    return { accepted: true };
+  }, {
+    body: t.Object({ dueDays: t.Optional(t.Number()) }),
+  })
+
+  // PATCH /api/loans/:id/decline
+  .patch("/:id/decline", async ({ userId, params, set }) => {
+    const loan = await prisma.loan.findFirst({
+      where: { id: params.id, giverId: userId, status: "PENDING" },
+      include: { book: true },
+    });
+    if (!loan) { set.status = 404; throw new Error("Demande introuvable"); }
+
+    await prisma.loan.update({
+      where: { id: params.id },
+      data: { status: "DECLINED" },
+    });
+
+    await prisma.appNotification.create({
+      data: {
+        type:       "LOAN_DECLINED",
+        userId:     loan.receiverId,
+        fromUserId: userId,
+        loanId:     loan.id,
+        bookTitle:  loan.book.title,
+      },
+    });
+
+    await prisma.appNotification.deleteMany({
+      where: { loanId: params.id, type: "LOAN_REQUEST", userId },
+    });
+
+    return { declined: true };
+  })
+
   // PATCH /api/loans/:id/return
   .patch("/:id/return", async ({ userId, params, set }) => {
     const loan = await prisma.loan.findFirst({
-      where: {
-        id: params.id,
-        OR: [{ giverId: userId }, { receiverId: userId }],
-      },
+      where: { id: params.id, OR: [{ giverId: userId }, { receiverId: userId }] },
     });
     if (!loan) { set.status = 404; throw new Error("Prêt introuvable"); }
 

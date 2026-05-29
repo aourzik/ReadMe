@@ -21,12 +21,50 @@ model User {
   updatedAt        DateTime @updatedAt
 
   books            Book[]
-  loansGiven       Loan[]       @relation("LoanGiver")
-  loansReceived    Loan[]       @relation("LoanReceiver")
-  friendshipsA     Friendship[] @relation("FriendA")
-  friendshipsB     Friendship[] @relation("FriendB")
+  loansGiven       Loan[]          @relation("LoanGiver")
+  loansReceived    Loan[]          @relation("LoanReceiver")
+  friendshipsA     Friendship[]    @relation("FriendA")
+  friendshipsB     Friendship[]    @relation("FriendB")
   sentRequests     FriendRequest[] @relation("Sender")
   receivedRequests FriendRequest[] @relation("Receiver")
+  activities       Activity[]
+  clubsCreated     BookClub[]      @relation("ClubCreator")
+  clubMemberships  BookClubMember[]
+  messagesSent     Message[]            @relation("MessagesSent")
+  messagesReceived Message[]            @relation("MessagesReceived")
+  notifReceived    AppNotification[]    @relation("NotifReceiver")
+  notifSent        AppNotification[]    @relation("NotifSender")
+}
+
+model AppNotification {
+  id          String    @id @default(cuid())
+  type        NotifType
+  createdAt   DateTime  @default(now())
+  read        Boolean   @default(false)
+  userId      String
+  fromUserId  String
+  loanId      String?
+  bookTitle   String?
+  user        User      @relation("NotifReceiver", fields: [userId],     references: [id], onDelete: Cascade)
+  fromUser    User      @relation("NotifSender",   fields: [fromUserId], references: [id], onDelete: Cascade)
+}
+
+enum NotifType {
+  LOAN_REQUEST
+  LOAN_ACCEPTED
+  LOAN_DECLINED
+  MESSAGE_RECEIVED
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  content    String
+  createdAt  DateTime  @default(now())
+  readAt     DateTime?
+  senderId   String
+  receiverId String
+  sender     User      @relation("MessagesSent",    fields: [senderId],   references: [id], onDelete: Cascade)
+  receiver   User      @relation("MessagesReceived", fields: [receiverId], references: [id], onDelete: Cascade)
 }
 
 model Book {
@@ -41,6 +79,7 @@ model Book {
   googleBooksId String?
   tags          String[]
   status        ReadStatus @default(WISHLIST)
+  isFavorite    Boolean    @default(false)
   addedAt       DateTime   @default(now())
   startedAt     DateTime?
   finishedAt    DateTime?
@@ -49,6 +88,7 @@ model Book {
   userId        String
   user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   loans         Loan[]
+  activities    Activity[]
 }
 
 enum ReadStatus {
@@ -60,6 +100,7 @@ enum ReadStatus {
 model Loan {
   id          String      @id @default(cuid())
   direction   LoanDirection
+  status      LoanStatus  @default(PENDING)
   since       DateTime    @default(now())
   dueDate     DateTime?
   returned    Boolean     @default(false)
@@ -77,6 +118,12 @@ model Loan {
 enum LoanDirection {
   OUT
   IN
+}
+
+enum LoanStatus {
+  PENDING
+  ACTIVE
+  DECLINED
 }
 
 model Friendship {
@@ -106,4 +153,51 @@ enum FriendRequestStatus {
   PENDING
   ACCEPTED
   DECLINED
+}
+
+model Activity {
+  id        String       @id @default(cuid())
+  type      ActivityType
+  createdAt DateTime     @default(now())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId    String?
+  book      Book?        @relation(fields: [bookId], references: [id], onDelete: SetNull)
+}
+
+enum ActivityType {
+  BOOK_ADDED
+  BOOK_FINISHED
+  BOOK_RATED
+  BOOK_RECOMMENDED
+}
+
+model BookClub {
+  id          String            @id @default(cuid())
+  name        String
+  theme       String?
+  createdAt   DateTime          @default(now())
+  createdById String
+  createdBy   User              @relation("ClubCreator", fields: [createdById], references: [id])
+  members     BookClubMember[]
+  meetings    BookClubMeeting[]
+}
+
+model BookClubMember {
+  id       String   @id @default(cuid())
+  joinedAt DateTime @default(now())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clubId   String
+  club     BookClub @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clubId])
+}
+
+model BookClubMeeting {
+  id        String   @id @default(cuid())
+  date      DateTime
+  createdAt DateTime @default(now())
+  clubId    String
+  club      BookClub @relation(fields: [clubId], references: [id], onDelete: Cascade)
 }

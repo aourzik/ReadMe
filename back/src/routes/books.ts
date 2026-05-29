@@ -12,6 +12,13 @@ export const bookRoutes = new Elysia({ prefix: "/books" })
 
     const books = await prisma.book.findMany({
       where,
+      include: {
+        loans: {
+          where: { status: "ACTIVE", returned: false },
+          include: { receiver: true },
+          take: 1,
+        },
+      },
       orderBy: { addedAt: "desc" },
     });
     return books.map(serializeBook);
@@ -23,6 +30,13 @@ export const bookRoutes = new Elysia({ prefix: "/books" })
   .get("/:id", async ({ userId, params, set }) => {
     const book = await prisma.book.findFirst({
       where: { id: params.id, userId },
+      include: {
+        loans: {
+          where: { status: "ACTIVE", returned: false },
+          include: { receiver: true },
+          take: 1,
+        },
+      },
     });
     if (!book) { set.status = 404; throw new Error("Livre introuvable"); }
     return serializeBook(book);
@@ -37,6 +51,7 @@ export const bookRoutes = new Elysia({ prefix: "/books" })
         userId,
       },
     });
+    await prisma.activity.create({ data: { type: "BOOK_ADDED", userId, bookId: book.id } });
     return serializeBook(book);
   }, {
     body: t.Object({
@@ -61,20 +76,24 @@ export const bookRoutes = new Elysia({ prefix: "/books" })
     if (body.status) data.status = body.status.toUpperCase();
     if (body.status === "READ" && !existing.finishedAt) {
       data.finishedAt = new Date();
-      // Increment booksReadThisYear if same year
-      const now = new Date();
-      if (now.getFullYear() === new Date().getFullYear()) {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { booksReadThisYear: { increment: 1 } },
-        });
-      }
+      await prisma.user.update({
+        where: { id: userId },
+        data: { booksReadThisYear: { increment: 1 } },
+      });
     }
     if (body.status === "READING" && !existing.startedAt) {
       data.startedAt = new Date();
     }
 
     const book = await prisma.book.update({ where: { id: params.id }, data });
+
+    // Activités automatiques
+    if (body.status === "READ" && !existing.finishedAt) {
+      await prisma.activity.create({ data: { type: "BOOK_FINISHED", userId, bookId: book.id } });
+    } else if (body.rating != null && body.rating > 0 && existing.rating === 0) {
+      await prisma.activity.create({ data: { type: "BOOK_RATED", userId, bookId: book.id } });
+    }
+
     return serializeBook(book);
   }, {
     body: t.Object({
@@ -87,6 +106,7 @@ export const bookRoutes = new Elysia({ prefix: "/books" })
       coverUrl:    t.Optional(t.String()),
       tags:        t.Optional(t.Array(t.String())),
       status:      t.Optional(t.String()),
+      isFavorite:  t.Optional(t.Boolean()),
     }),
   })
 
@@ -99,6 +119,7 @@ export const bookRoutes = new Elysia({ prefix: "/books" })
   });
 
 function serializeBook(book: any) {
+  const activeLoan = book.loans?.[0];
   return {
     id:            book.id,
     title:         book.title,
@@ -111,9 +132,14 @@ function serializeBook(book: any) {
     googleBooksId: book.googleBooksId,
     tags:          book.tags,
     status:        book.status.toLowerCase(),
+    isFavorite:    book.isFavorite,
     addedAt:       book.addedAt?.toISOString(),
     startedAt:     book.startedAt?.toISOString(),
     finishedAt:    book.finishedAt?.toISOString(),
     userId:        book.userId,
+    lentTo:        activeLoan?.receiver?.name ?? null,
+    lentToUserId:  activeLoan?.receiverId ?? null,
+    lentSince:     activeLoan?.since?.toISOString() ?? null,
+    lentUntil:     activeLoan?.dueDate?.toISOString() ?? null,
   };
 }

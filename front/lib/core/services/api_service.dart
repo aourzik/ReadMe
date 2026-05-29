@@ -3,6 +3,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/book.dart';
 import '../models/user.dart';
 import '../models/loan.dart';
+import '../models/activity.dart';
+import '../models/book_club.dart';
+import '../models/message.dart';
+import '../models/notification.dart';
 
 class ApiService {
   static const _baseUrl = 'http://10.0.2.2:3000/api';
@@ -130,6 +134,19 @@ class ApiService {
     await _dio.patch('/loans/$loanId/return');
   }
 
+  Future<Loan> borrowBook({
+    required String bookId,
+    required String giverId,
+    DateTime? dueDate,
+  }) async {
+    final res = await _dio.post('/loans/borrow', data: {
+      'bookId': bookId,
+      'giverId': giverId,
+      if (dueDate != null) 'dueDate': dueDate.toIso8601String(),
+    });
+    return Loan.fromJson(res.data as Map<String, dynamic>);
+  }
+
   // ── Friends ───────────────────────────────────────────────────────────────
 
   Future<List<User>> getFriends() async {
@@ -150,6 +167,19 @@ class ApiService {
     await _dio.patch('/friends/requests/$requestId/accept');
   }
 
+  Future<void> declineFriendRequest(String requestId) async {
+    await _dio.patch('/friends/requests/$requestId/decline');
+  }
+
+  Future<void> removeFriend(String friendId) async {
+    await _dio.delete('/friends/$friendId');
+  }
+
+  Future<List<Activity>> getFriendActivity() async {
+    final res = await _dio.get('/friends/activity');
+    return (res.data as List).map((a) => Activity.fromJson(a)).toList();
+  }
+
   Future<List<Book>> getFriendBooks(String friendId) async {
     final res = await _dio.get('/friends/$friendId/books');
     return (res.data as List).map((b) => Book.fromJson(b)).toList();
@@ -158,6 +188,104 @@ class ApiService {
   Future<List<User>> searchUsers(String query) async {
     final res = await _dio.get('/users/search', queryParameters: {'q': query});
     return (res.data as List).map((u) => User.fromJson(u)).toList();
+  }
+
+  // ── Book Clubs ────────────────────────────────────────────────────────────
+
+  Future<List<BookClub>> getBookClubs() async {
+    final res = await _dio.get('/bookclubs');
+    return (res.data as List).map((c) => BookClub.fromJson(c)).toList();
+  }
+
+  Future<BookClub> getBookClub(String id) async {
+    final res = await _dio.get('/bookclubs/$id');
+    return BookClub.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<BookClub> createBookClub({
+    required String name,
+    String? theme,
+    List<String> memberIds = const [],
+  }) async {
+    final res = await _dio.post('/bookclubs', data: {
+      'name': name,
+      if (theme != null) 'theme': theme,
+      'memberIds': memberIds,
+    });
+    return BookClub.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<BookClub> updateBookClub(String id, {String? name, String? theme}) async {
+    final res = await _dio.patch('/bookclubs/$id', data: {
+      if (name != null) 'name': name,
+      if (theme != null) 'theme': theme,
+    });
+    return BookClub.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<void> addBookClubMembers(String clubId, List<String> userIds) async {
+    await _dio.post('/bookclubs/$clubId/members', data: {'userIds': userIds});
+  }
+
+  Future<void> removeBookClubMember(String clubId, String userId) async {
+    await _dio.delete('/bookclubs/$clubId/members/$userId');
+  }
+
+  Future<BookClubMeeting> addBookClubMeeting(String clubId, DateTime date) async {
+    final res = await _dio.post('/bookclubs/$clubId/meetings', data: {
+      'date': date.toIso8601String(),
+    });
+    return BookClubMeeting.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteBookClubMeeting(String clubId, String meetingId) async {
+    await _dio.delete('/bookclubs/$clubId/meetings/$meetingId');
+  }
+
+  // ── Messages ─────────────────────────────────────────────────────────────
+
+  Future<List<Conversation>> getConversations() async {
+    final res = await _dio.get('/messages');
+    return (res.data as List).map((c) => Conversation.fromJson(c)).toList();
+  }
+
+  Future<List<ChatMessage>> getMessages(String partnerId) async {
+    final res = await _dio.get('/messages/$partnerId');
+    return (res.data as List).map((m) => ChatMessage.fromJson(m)).toList();
+  }
+
+  Future<ChatMessage> sendMessage(String partnerId, String content) async {
+    final res = await _dio.post('/messages/$partnerId', data: {'content': content});
+    return ChatMessage.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+
+  Future<List<AppNotification>> getNotifications() async {
+    final res = await _dio.get('/notifications');
+    return (res.data as List).map((n) => AppNotification.fromJson(n)).toList();
+  }
+
+  Future<int> getUnreadNotifCount() async {
+    final res = await _dio.get('/notifications/unread-count');
+    return (res.data['count'] as num).toInt();
+  }
+
+  Future<void> markNotifRead(String id) async {
+    await _dio.patch('/notifications/$id/read');
+  }
+
+  Future<void> markAllNotifsRead() async {
+    await _dio.patch('/notifications/read-all');
+  }
+
+  Future<void> acceptLoan(String loanId, {int? dueDays}) async {
+    await _dio.patch('/loans/$loanId/accept',
+        data: dueDays != null ? {'dueDays': dueDays} : {});
+  }
+
+  Future<void> declineLoan(String loanId) async {
+    await _dio.patch('/loans/$loanId/decline');
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────

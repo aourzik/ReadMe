@@ -8,6 +8,7 @@ import '../../../core/models/user.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/widgets/book_cover.dart';
 import '../../library/screens/library_screen.dart';
+import '../../loans/screens/loans_screen.dart';
 
 final _bookDetailProvider = FutureProvider.family<Book, String>(
   (ref, id) => apiService.getBook(id),
@@ -84,9 +85,24 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
                         children: [
                           _SoftIconBtn(icon: Icons.chevron_left_rounded, isDark: isDark, onTap: () => context.pop()),
                           Row(children: [
-                            _SoftIconBtn(icon: Icons.bookmark_border_rounded, isDark: isDark),
+                            _SoftIconBtn(
+                              icon: book.isFavorite
+                                  ? Icons.bookmark_rounded
+                                  : Icons.bookmark_border_rounded,
+                              isDark: isDark,
+                              color: book.isFavorite ? accent : null,
+                              onTap: () async {
+                                await apiService.updateBook(book.id, {'isFavorite': !book.isFavorite});
+                                ref.invalidate(_bookDetailProvider(widget.bookId));
+                                ref.invalidate(booksProvider);
+                              },
+                            ),
                             const SizedBox(width: 6),
-                            _SoftIconBtn(icon: Icons.share_rounded, isDark: isDark),
+                            _SoftIconBtn(
+                              icon: Icons.delete_outline_rounded,
+                              isDark: isDark,
+                              onTap: () => _confirmDelete(context, book, ref),
+                            ),
                           ]),
                         ],
                       ),
@@ -274,6 +290,27 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
     );
   }
 
+  Future<void> _confirmDelete(BuildContext context, Book book, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer ce livre ?'),
+        content: Text('« ${book.title} » sera retiré de ta bibliothèque.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await apiService.deleteBook(book.id);
+    ref.invalidate(booksProvider);
+    if (mounted) context.pop();
+  }
+
   Color _heroColor(Book book) {
     if (book.coverUrl != null) return AppColors.accentRoseStrongLight;
     // Derive from title hash
@@ -323,7 +360,8 @@ class _SoftIconBtn extends StatelessWidget {
   final IconData icon;
   final bool isDark;
   final VoidCallback? onTap;
-  const _SoftIconBtn({required this.icon, required this.isDark, this.onTap});
+  final Color? color;
+  const _SoftIconBtn({required this.icon, required this.isDark, this.onTap, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +375,7 @@ class _SoftIconBtn extends StatelessWidget {
         decoration: BoxDecoration(shape: BoxShape.circle, color: surface,
             border: Border.all(color: border, width: 0.5),
             boxShadow: AppShadows.soft(dark: isDark)),
-        child: Icon(icon, size: 18, color: ink),
+        child: Icon(icon, size: 18, color: color ?? ink),
       ),
     );
   }
@@ -529,6 +567,7 @@ class _LendSheet extends ConsumerStatefulWidget {
 class _LendSheetState extends ConsumerState<_LendSheet> {
   String? _pickedFriendId;
   int _durationDays = 21;
+  bool _saving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -680,7 +719,28 @@ class _LendSheetState extends ConsumerState<_LendSheet> {
             padding: EdgeInsets.only(left: 24, right: 24,
                 bottom: MediaQuery.of(context).padding.bottom + 12),
             child: GestureDetector(
-              onTap: _pickedFriendId != null ? widget.onConfirm : null,
+              onTap: (_pickedFriendId != null && !_saving) ? () async {
+                setState(() => _saving = true);
+                try {
+                  await apiService.createLoan(
+                    bookId: widget.book.id,
+                    partnerId: _pickedFriendId!,
+                    dueDate: _durationDays > 0
+                        ? DateTime.now().add(Duration(days: _durationDays))
+                        : null,
+                  );
+                  ref.invalidate(loansProvider);
+                  ref.invalidate(booksProvider);
+                  widget.onConfirm();
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erreur : $e')));
+                  }
+                } finally {
+                  if (mounted) setState(() => _saving = false);
+                }
+              } : null,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: double.infinity,
@@ -690,14 +750,18 @@ class _LendSheetState extends ConsumerState<_LendSheet> {
                   borderRadius: BorderRadius.circular(999),
                   boxShadow: AppShadows.soft(dark: isDark),
                 ),
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.swap_horiz_rounded, size: 16,
-                      color: _pickedFriendId != null ? (isDark ? AppColors.bgDark : AppColors.bgLight) : inkMuted),
-                  const SizedBox(width: 8),
-                  Text('Confirmer le prêt', style: AppText.body(size: 15,
-                      color: _pickedFriendId != null ? (isDark ? AppColors.bgDark : AppColors.bgLight) : inkMuted)
-                      .copyWith(fontWeight: FontWeight.w600)),
-                ]),
+                child: _saving
+                    ? Center(child: SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2,
+                            color: isDark ? AppColors.bgDark : AppColors.bgLight)))
+                    : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.swap_horiz_rounded, size: 16,
+                            color: _pickedFriendId != null ? (isDark ? AppColors.bgDark : AppColors.bgLight) : inkMuted),
+                        const SizedBox(width: 8),
+                        Text('Confirmer le prêt', style: AppText.body(size: 15,
+                            color: _pickedFriendId != null ? (isDark ? AppColors.bgDark : AppColors.bgLight) : inkMuted)
+                            .copyWith(fontWeight: FontWeight.w600)),
+                      ]),
               ),
             ),
           ),

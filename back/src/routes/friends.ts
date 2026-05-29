@@ -9,7 +9,10 @@ export const friendRoutes = new Elysia({ prefix: "/friends" })
   .get("/", async ({ userId }) => {
     const friendships = await prisma.friendship.findMany({
       where: { OR: [{ userAId: userId }, { userBId: userId }] },
-      include: { userA: true, userB: true },
+      include: {
+        userA: { include: { _count: { select: { books: true, friendshipsA: true, friendshipsB: true } } } },
+        userB: { include: { _count: { select: { books: true, friendshipsA: true, friendshipsB: true } } } },
+      },
     });
     return friendships.map((f) => {
       const friend = f.userAId === userId ? f.userB : f.userA;
@@ -31,9 +34,46 @@ export const friendRoutes = new Elysia({ prefix: "/friends" })
     }));
   })
 
+  // GET /api/friends/activity — activité récente des amis
+  .get("/activity", async ({ userId }) => {
+    const friendships = await prisma.friendship.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+    });
+    const friendIds = friendships.map((f) =>
+      f.userAId === userId ? f.userBId : f.userAId
+    );
+    if (friendIds.length === 0) return [];
+
+    const activities = await prisma.activity.findMany({
+      where: { userId: { in: friendIds } },
+      include: {
+        user: true,
+        book: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    });
+
+    return activities
+      .filter((a) => a.book !== null)
+      .map((a) => ({
+        id: a.id,
+        type: a.type.toLowerCase(),
+        createdAt: a.createdAt.toISOString(),
+        user: { id: a.user.id, name: a.user.name, handle: a.user.handle, avatarUrl: a.user.avatarUrl },
+        book: a.book ? {
+          id: a.book.id,
+          title: a.book.title,
+          author: a.book.author,
+          coverUrl: a.book.coverUrl,
+          year: a.book.year,
+          googleBooksId: a.book.googleBooksId,
+        } : null,
+      }));
+  })
+
   // POST /api/friends/request
   .post("/request", async ({ userId, body, set }) => {
-    // Vérifier pas déjà amis
     const existing = await prisma.friendship.findFirst({
       where: {
         OR: [
@@ -44,9 +84,13 @@ export const friendRoutes = new Elysia({ prefix: "/friends" })
     });
     if (existing) { set.status = 409; throw new Error("Déjà amis"); }
 
+    const alreadySent = await prisma.friendRequest.findFirst({
+      where: { senderId: userId, receiverId: body.userId, status: "PENDING" },
+    });
+    if (alreadySent) { set.status = 409; throw new Error("Demande déjà envoyée"); }
+
     const request = await prisma.friendRequest.create({
       data: { senderId: userId, receiverId: body.userId },
-      include: { sender: true },
     });
     return { id: request.id, status: "pending" };
   }, {
@@ -69,13 +113,38 @@ export const friendRoutes = new Elysia({ prefix: "/friends" })
         data: { userAId: request.senderId, userBId: userId },
       }),
     ]);
-
     return { accepted: true };
+  })
+
+  // PATCH /api/friends/requests/:id/decline
+  .patch("/requests/:id/decline", async ({ userId, params, set }) => {
+    const request = await prisma.friendRequest.findFirst({
+      where: { id: params.id, receiverId: userId, status: "PENDING" },
+    });
+    if (!request) { set.status = 404; throw new Error("Demande introuvable"); }
+
+    await prisma.friendRequest.update({
+      where: { id: params.id },
+      data: { status: "DECLINED" },
+    });
+    return { declined: true };
+  })
+
+  // DELETE /api/friends/:userId — supprimer un ami
+  .delete("/:friendId", async ({ userId, params }) => {
+    await prisma.friendship.deleteMany({
+      where: {
+        OR: [
+          { userAId: userId, userBId: params.friendId },
+          { userAId: params.friendId, userBId: userId },
+        ],
+      },
+    });
+    return { removed: true };
   })
 
   // GET /api/friends/:userId/books
   .get("/:userId/books", async ({ userId, params }) => {
-    // Vérifier qu'ils sont amis
     const friendship = await prisma.friendship.findFirst({
       where: {
         OR: [
@@ -84,7 +153,7 @@ export const friendRoutes = new Elysia({ prefix: "/friends" })
         ],
       },
     });
-    if (!friendship) return []; // Pas amis = liste vide
+    if (!friendship) return [];
 
     const books = await prisma.book.findMany({
       where: { userId: params.userId },
@@ -99,10 +168,15 @@ export const friendRoutes = new Elysia({ prefix: "/friends" })
   });
 
 function serializeUser(user: any) {
+  const friendCount = (user._count?.friendshipsA ?? 0) + (user._count?.friendshipsB ?? 0);
   return {
-    id: user.id, name: user.name, email: user.email,
-    handle: user.handle, avatarUrl: user.avatarUrl,
-    bookCount: 0, friendCount: 0,
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    handle: user.handle,
+    avatarUrl: user.avatarUrl,
+    bookCount: user._count?.books ?? 0,
+    friendCount,
     favoriteGenres: [],
   };
 }

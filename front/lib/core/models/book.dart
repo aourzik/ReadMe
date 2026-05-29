@@ -22,6 +22,7 @@ class Book {
   final DateTime? startedAt;
   final DateTime? finishedAt;
   final String? userId;
+  final bool isFavorite;
 
   const Book({
     required this.id,
@@ -35,6 +36,7 @@ class Book {
     this.coverUrl,
     this.googleBooksId,
     this.status = ReadStatus.wishlist,
+    this.isFavorite = false,
     this.lentTo,
     this.lentToUserId,
     this.lentSince,
@@ -58,6 +60,7 @@ class Book {
       coverUrl: json['coverUrl'] as String?,
       googleBooksId: json['googleBooksId'] as String?,
       status: _parseStatus(json['status'] as String?),
+      isFavorite: json['isFavorite'] as bool? ?? false,
       lentTo: json['lentTo'] as String?,
       lentToUserId: json['lentToUserId'] as String?,
       lentSince: json['lentSince'] != null ? DateTime.parse(json['lentSince'] as String) : null,
