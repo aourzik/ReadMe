@@ -1,4 +1,4 @@
-package com.example.readme_app
+package app.readme.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

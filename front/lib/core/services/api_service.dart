@@ -11,7 +11,7 @@ import '../models/notification.dart';
 class ApiService {
   static const _baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://10.0.2.2:3000/api',
+    defaultValue: 'https://readme-back-396x.onrender.com/api',
   );
 
   late final Dio _dio;
