@@ -1,10 +1,32 @@
 import { Elysia, t } from "elysia";
 import bcrypt from "bcryptjs";
-import { Resend } from "resend";
 import { jwtPlugin } from "../middleware/auth";
 import { prisma } from "../utils/prisma";
 
-const getResend = () => new Resend(process.env.RESEND_API_KEY!);
+async function sendEmail(to: string, code: string) {
+  await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": process.env.BREVO_API_KEY!,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: { name: "ReadMe", email: "a.ourzik.dev@gmail.com" },
+      to: [{ email: to }],
+      subject: "Ton code ReadMe",
+      htmlContent: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+          <h2 style="font-size: 24px; margin-bottom: 8px;">Réinitialise ton mot de passe</h2>
+          <p style="color: #666; margin-bottom: 24px;">Voici ton code de réinitialisation. Il est valable <strong>15 minutes</strong>.</p>
+          <div style="background: #f5f5f5; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+            <span style="font-size: 40px; font-weight: 700; letter-spacing: 8px; color: #1a1a1a;">${code}</span>
+          </div>
+          <p style="color: #999; font-size: 13px;">Si tu n'as pas demandé cette réinitialisation, ignore cet email.</p>
+        </div>
+      `,
+    }),
+  });
+}
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
   .use(jwtPlugin)
@@ -110,22 +132,8 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
         data: { email, code, expiresAt },
       });
 
-      // Envoie l'email
-      await getResend().emails.send({
-        from: "ReadMe <onboarding@resend.dev>",
-        to: email,
-        subject: "Ton code ReadMe",
-        html: `
-          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-            <h2 style="font-size: 24px; margin-bottom: 8px;">Réinitialise ton mot de passe</h2>
-            <p style="color: #666; margin-bottom: 24px;">Voici ton code de réinitialisation. Il est valable <strong>15 minutes</strong>.</p>
-            <div style="background: #f5f5f5; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
-              <span style="font-size: 40px; font-weight: 700; letter-spacing: 8px; color: #1a1a1a;">${code}</span>
-            </div>
-            <p style="color: #999; font-size: 13px;">Si tu n'as pas demandé cette réinitialisation, ignore cet email.</p>
-          </div>
-        `,
-      });
+      // Envoie l'email via Brevo
+      await sendEmail(email, code);
 
       return { message: "Si cet email existe, un code t'a été envoyé." };
     },
