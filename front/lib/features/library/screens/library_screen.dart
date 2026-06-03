@@ -16,8 +16,9 @@ import '../../profile/screens/profile_screen.dart';
 // ─── Providers ────────────────────────────────────────────────────────────────
 
 enum LibraryLayout { list, grid }
-final layoutProvider = StateProvider<LibraryLayout>((ref) => LibraryLayout.list);
+final layoutProvider  = StateProvider<LibraryLayout>((ref) => LibraryLayout.list);
 final filterProvider  = StateProvider<String>((ref) => 'Tout');
+final searchProvider  = StateProvider<String>((ref) => '');
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ class LibraryScreen extends ConsumerWidget {
     final isDark          = themeState.isDark;
     final layout          = ref.watch(layoutProvider);
     final filter          = ref.watch(filterProvider);
+    final search          = ref.watch(searchProvider);
     final booksAsync      = ref.watch(booksProvider);
     final unreadAsync     = ref.watch(unreadNotifCountProvider);
     final borrowedAsync   = ref.watch(borrowedLoansProvider);
@@ -49,8 +51,8 @@ class LibraryScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('Erreur: $e')),
         data: (books) {
           final borrowed = borrowedAsync.valueOrNull ?? [];
-          // Filtrage
-          final filtered = _filterBooks(books, filter);
+          // Filtrage statut + recherche texte
+          final filtered = _filterBooks(books, filter, search);
           final stats = (
             total: books.length,
             reading: books.where((b) => b.status == ReadStatus.reading).length,
@@ -82,7 +84,12 @@ class LibraryScreen extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: _SearchBar(isDark: isDark),
+                  child: _SearchBar(
+                    isDark: isDark,
+                    value: search,
+                    onChanged: (v) => ref.read(searchProvider.notifier).state = v,
+                    onClear: () => ref.read(searchProvider.notifier).state = '',
+                  ),
                 ),
               ),
 
@@ -206,14 +213,24 @@ class LibraryScreen extends ConsumerWidget {
     );
   }
 
-  List<Book> _filterBooks(List<Book> books, String filter) {
+  List<Book> _filterBooks(List<Book> books, String filter, String search) {
+    var result = books;
+    // Filtre par statut
     switch (filter) {
-      case 'En cours':  return books.where((b) => b.status == ReadStatus.reading).toList();
-      case 'Lus':       return books.where((b) => b.status == ReadStatus.read).toList();
-      case 'Souhaités': return books.where((b) => b.status == ReadStatus.wishlist).toList();
-      case 'Prêtés':    return books.where((b) => b.lentTo != null).toList();
-      default:          return books;
+      case 'En cours':  result = result.where((b) => b.status == ReadStatus.reading).toList(); break;
+      case 'Lus':       result = result.where((b) => b.status == ReadStatus.read).toList(); break;
+      case 'Souhaités': result = result.where((b) => b.status == ReadStatus.wishlist).toList(); break;
+      case 'Prêtés':    result = result.where((b) => b.lentTo != null).toList(); break;
     }
+    // Filtre par texte
+    if (search.trim().isNotEmpty) {
+      final q = search.trim().toLowerCase();
+      result = result.where((b) =>
+        b.title.toLowerCase().contains(q) ||
+        b.author.toLowerCase().contains(q),
+      ).toList();
+    }
+    return result;
   }
 
   Widget _buildSkeleton(bool isDark) {
@@ -230,35 +247,93 @@ class LibraryScreen extends ConsumerWidget {
   }
 }
 
-class _SearchBar extends StatelessWidget {
+class _SearchBar extends StatefulWidget {
   final bool isDark;
-  const _SearchBar({required this.isDark});
+  final String value;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  const _SearchBar({
+    required this.isDark,
+    required this.value,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  @override
+  State<_SearchBar> createState() => _SearchBarState();
+}
+
+class _SearchBarState extends State<_SearchBar> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(_SearchBar old) {
+    super.didUpdateWidget(old);
+    if (widget.value != _ctrl.text) {
+      _ctrl.text = widget.value;
+      _ctrl.selection = TextSelection.collapsed(offset: widget.value.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final surface  = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
-    final ink      = isDark ? AppColors.inkDark : AppColors.inkLight;
-    final inkMuted = isDark ? AppColors.inkMutedDark : AppColors.inkMutedLight;
-    final border   = isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08);
+    final surface  = widget.isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
+    final ink      = widget.isDark ? AppColors.inkDark : AppColors.inkLight;
+    final inkMuted = widget.isDark ? AppColors.inkMutedDark : AppColors.inkMutedLight;
+    final border   = widget.isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08);
+    final hasText  = widget.value.isNotEmpty;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         color: surface, borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: border, width: 0.5),
-        boxShadow: AppShadows.soft(dark: isDark),
+        border: Border.all(
+          color: hasText ? AppColors.accentRoseLight.withOpacity(0.5) : border,
+          width: 0.5,
+        ),
+        boxShadow: AppShadows.soft(dark: widget.isDark),
       ),
       child: Row(
         children: [
-          Icon(Icons.search_rounded, size: 16, color: inkMuted),
+          Icon(Icons.search_rounded, size: 16, color: hasText ? AppColors.accentRoseLight : inkMuted),
           const SizedBox(width: 10),
-          Expanded(child: Text(
-            'Chercher un titre, un auteur…',
-            style: AppText.body(size: 13.5, color: inkMuted),
-          )),
-          Container(width: 1, height: 16, color: border),
-          const SizedBox(width: 10),
-          Icon(Icons.qr_code_scanner_rounded, size: 16, color: inkMuted),
+          Expanded(
+            child: TextField(
+              controller: _ctrl,
+              onChanged: widget.onChanged,
+              style: AppText.body(size: 13.5, color: ink),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                hintText: 'Chercher un titre, un auteur…',
+                hintStyle: AppText.body(size: 13.5, color: inkMuted),
+              ),
+            ),
+          ),
+          if (hasText) ...[
+            GestureDetector(
+              onTap: () { _ctrl.clear(); widget.onClear(); },
+              child: Icon(Icons.close_rounded, size: 16, color: inkMuted),
+            ),
+          ] else ...[
+            Container(width: 1, height: 16, color: border),
+            const SizedBox(width: 10),
+            Icon(Icons.qr_code_scanner_rounded, size: 16, color: inkMuted),
+          ],
         ],
       ),
     );
