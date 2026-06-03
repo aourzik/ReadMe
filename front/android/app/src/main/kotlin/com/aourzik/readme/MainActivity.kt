@@ -1,4 +1,4 @@
-package app.readme.mobile
+package com.aourzik.readme
 
 import io.flutter.embedding.android.FlutterActivity
 

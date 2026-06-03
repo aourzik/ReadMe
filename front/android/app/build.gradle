@@ -11,7 +11,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "app.readme.mobile"
+    namespace = "com.aourzik.readme"
     compileSdk = 35
     ndkVersion = "25.1.8937393"
 
@@ -25,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.readme.mobile"
+        applicationId = "com.aourzik.readme"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
