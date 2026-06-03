@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/responsive_sheet.dart';
 import '../../../core/models/book_club.dart';
 import '../../../core/services/api_service.dart';
 import 'friends_screen.dart';
@@ -236,9 +237,8 @@ class _BookClubDetailScreenState extends ConsumerState<BookClubDetailScreen> {
       Color ink, Color inkMuted, Color surface, Color surfAlt,
       Color border, Color accent, Color accentInk) {
     final existingIds = club.members.map((m) => m.id).toSet();
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => _AddMembersSheet(
         clubId: club.id,
@@ -271,9 +271,8 @@ class _BookClubDetailScreenState extends ConsumerState<BookClubDetailScreen> {
     final nameCtrl  = TextEditingController(text: club.name);
     final themeCtrl = TextEditingController(text: club.theme ?? '');
 
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),

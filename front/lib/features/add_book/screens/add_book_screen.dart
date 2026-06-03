@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/responsive_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -392,10 +393,8 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
   }
 
   void _showBarcodeScanSheet(BuildContext context, bool isDark, Color ink, Color inkMuted, Color bg) {
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (_) => _BarcodeScanSheet(
         isDark: isDark,
         onDetected: (isbn) {

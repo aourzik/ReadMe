@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/responsive_sheet.dart';
 import '../../../core/models/book.dart';
 import '../../../core/models/loan.dart';
 import '../../../core/services/api_service.dart';
@@ -191,9 +192,8 @@ class FriendLibraryScreen extends ConsumerWidget {
             behavior: SnackBarBehavior.floating));
       return;
     }
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => _BorrowSheet(
         books: books,

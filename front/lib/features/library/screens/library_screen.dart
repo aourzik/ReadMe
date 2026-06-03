@@ -178,16 +178,22 @@ class LibraryScreen extends ConsumerWidget {
               else
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  sliver: SliverGrid.count(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 18,
-                    crossAxisSpacing: 14,
-                    childAspectRatio: 0.6,
-                    children: filtered.map((b) => BookGridItem(
-                      book: b,
-                      isDark: isDark,
-                      onTap: () => context.push('/library/book/${b.id}'),
-                    )).toList(),
+                  sliver: SliverLayoutBuilder(
+                    builder: (context, constraints) {
+                      final w = constraints.crossAxisExtent;
+                      final cols = w >= 900 ? 4 : w >= 600 ? 3 : 2;
+                      return SliverGrid.count(
+                        crossAxisCount: cols,
+                        mainAxisSpacing: 18,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: 0.6,
+                        children: filtered.map((b) => BookGridItem(
+                          book: b,
+                          isDark: isDark,
+                          onTap: () => context.push('/library/book/${b.id}'),
+                        )).toList(),
+                      );
+                    },
                   ),
                 ),
 

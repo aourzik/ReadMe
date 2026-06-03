@@ -199,3 +199,32 @@ class AppShadows {
       ? [BoxShadow(color: Color(0x4D000000), blurRadius: 2, offset: Offset(0, 1))]
       : [BoxShadow(color: Color(0x0F3C2814), blurRadius: 2, offset: Offset(0, 1))];
 }
+
+// ─── Responsive helpers ───────────────────────────────────────────────────────
+
+const double kTabletBreakpoint  = 600;
+const double kMaxContentWidth   = 800;
+
+/// Retourne le padding horizontal adapté à la largeur d'écran.
+double responsivePadding(double screenWidth) {
+  if (screenWidth >= kTabletBreakpoint) return 32;
+  return 20;
+}
+
+/// Centre le contenu avec une largeur max sur tablette.
+class TabletConstraint extends StatelessWidget {
+  final Widget child;
+  const TabletConstraint({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+    if (w < kTabletBreakpoint) return child;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+        child: child,
+      ),
+    );
+  }
+}
