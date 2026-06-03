@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/auth/screens/welcome_screen.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/register_screen.dart';
+import '../features/auth/screens/forgot_password_screen.dart';
+import '../features/auth/screens/reset_password_screen.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
 import '../features/library/screens/library_screen.dart';
 import '../features/book_detail/screens/book_detail_screen.dart';
@@ -28,7 +30,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuth = await apiService.isAuthenticated();
       final loc = state.matchedLocation;
       final isAuthRoute = loc == '/welcome' || loc == '/login' ||
-          loc == '/register' || loc == '/onboarding';
+          loc == '/register' || loc == '/onboarding' ||
+          loc == '/forgot-password' || loc == '/reset-password';
 
       if (!isAuth && !isAuthRoute) return '/welcome';
       if (isAuth && isAuthRoute) return '/library';
@@ -36,10 +39,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       // ── Auth ──
-      GoRoute(path: '/welcome',    builder: (c, s) => const WelcomeScreen()),
-      GoRoute(path: '/login',      builder: (c, s) => const LoginScreen()),
-      GoRoute(path: '/register',   builder: (c, s) => const RegisterScreen()),
-      GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
+      GoRoute(path: '/welcome',         builder: (c, s) => const WelcomeScreen()),
+      GoRoute(path: '/login',           builder: (c, s) => const LoginScreen()),
+      GoRoute(path: '/register',        builder: (c, s) => const RegisterScreen()),
+      GoRoute(path: '/onboarding',      builder: (c, s) => const OnboardingScreen()),
+      GoRoute(path: '/forgot-password', builder: (c, s) => const ForgotPasswordScreen()),
+      GoRoute(path: '/reset-password',  builder: (c, s) => ResetPasswordScreen(email: s.extra as String? ?? '')),
 
       // ── Full-screen detail pages (pas de nav bar) ──
       GoRoute(path: '/library/add',           builder: (c, s) => const AddBookScreen()),

@@ -1,7 +1,10 @@
 import { Elysia, t } from "elysia";
 import bcrypt from "bcryptjs";
+import { Resend } from "resend";
 import { jwtPlugin } from "../middleware/auth";
 import { prisma } from "../utils/prisma";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
   .use(jwtPlugin)
@@ -29,12 +32,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 
       return {
         token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          handle: user.handle,
-        },
+        user: { id: user.id, name: user.name, email: user.email, handle: user.handle },
       };
     },
     {
@@ -83,6 +81,100 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       body: t.Object({
         email: t.String({ format: "email" }),
         password: t.String(),
+      }),
+    }
+  )
+
+  // ── POST /api/auth/forgot-password ────────────────────────────
+  .post(
+    "/forgot-password",
+    async ({ body }) => {
+      const { email } = body;
+
+      const user = await prisma.user.findUnique({ where: { email } });
+
+      // On ne révèle pas si l'email existe ou non
+      if (!user) return { message: "Si cet email existe, un code t'a été envoyé." };
+
+      // Invalide les anciens tokens
+      await prisma.passwordResetToken.updateMany({
+        where: { email, used: false },
+        data: { used: true },
+      });
+
+      // Génère un code à 6 chiffres
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+
+      await prisma.passwordResetToken.create({
+        data: { email, code, expiresAt },
+      });
+
+      // Envoie l'email
+      await resend.emails.send({
+        from: "ReadMe <onboarding@resend.dev>",
+        to: email,
+        subject: "Ton code ReadMe",
+        html: `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+            <h2 style="font-size: 24px; margin-bottom: 8px;">Réinitialise ton mot de passe</h2>
+            <p style="color: #666; margin-bottom: 24px;">Voici ton code de réinitialisation. Il est valable <strong>15 minutes</strong>.</p>
+            <div style="background: #f5f5f5; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+              <span style="font-size: 40px; font-weight: 700; letter-spacing: 8px; color: #1a1a1a;">${code}</span>
+            </div>
+            <p style="color: #999; font-size: 13px;">Si tu n'as pas demandé cette réinitialisation, ignore cet email.</p>
+          </div>
+        `,
+      });
+
+      return { message: "Si cet email existe, un code t'a été envoyé." };
+    },
+    {
+      body: t.Object({
+        email: t.String({ format: "email" }),
+      }),
+    }
+  )
+
+  // ── POST /api/auth/reset-password ─────────────────────────────
+  .post(
+    "/reset-password",
+    async ({ body, set }) => {
+      const { email, code, password } = body;
+
+      const token = await prisma.passwordResetToken.findFirst({
+        where: {
+          email,
+          code,
+          used: false,
+          expiresAt: { gt: new Date() },
+        },
+      });
+
+      if (!token) {
+        set.status = 400;
+        throw new Error("Code invalide ou expiré.");
+      }
+
+      const passwordHash = await bcrypt.hash(password, 12);
+
+      await prisma.user.update({
+        where: { email },
+        data: { passwordHash },
+      });
+
+      await prisma.passwordResetToken.update({
+        where: { id: token.id },
+        data: { used: true },
+      });
+
+      return { message: "Mot de passe mis à jour avec succès." };
+    },
+    {
+      body: t.Object({
+        email: t.String({ format: "email" }),
+        code: t.String({ minLength: 6, maxLength: 6 }),
+        password: t.String({ minLength: 8 }),
       }),
     }
   );

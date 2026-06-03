@@ -80,6 +80,22 @@ class ApiService {
     await _storage.delete(key: 'jwt_token');
   }
 
+  Future<void> forgotPassword({required String email}) async {
+    await _dio.post('/auth/forgot-password', data: {'email': email});
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    await _dio.post('/auth/reset-password', data: {
+      'email': email,
+      'code': code,
+      'password': password,
+    });
+  }
+
   Future<bool> isAuthenticated() async {
     final token = await _storage.read(key: 'jwt_token');
     return token != null;
