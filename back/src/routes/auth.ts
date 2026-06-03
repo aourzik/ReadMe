@@ -4,14 +4,14 @@ import { jwtPlugin } from "../middleware/auth";
 import { prisma } from "../utils/prisma";
 
 async function sendEmail(to: string, code: string) {
-  await fetch("https://api.brevo.com/v3/smtp/email", {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
       "api-key": process.env.BREVO_API_KEY!,
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      sender: { name: "ReadMe", email: "a.ourzik.dev@gmail.com" },
+      sender: { name: "ReadMe", email: "aourzik@gmail.com" },
       to: [{ email: to }],
       subject: "Ton code ReadMe",
       htmlContent: `
@@ -26,6 +26,12 @@ async function sendEmail(to: string, code: string) {
       `,
     }),
   });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`[Brevo] Erreur ${res.status}:`, body);
+    throw new Error(`Email non envoyé (${res.status})`);
+  }
 }
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
