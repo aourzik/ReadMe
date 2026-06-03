@@ -11,7 +11,7 @@ async function sendEmail(to: string, code: string) {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      sender: { name: "ReadMe", email: "aourzik@gmail.com" },
+      sender: { name: "ReadMe", email: "a.ourzik.dev@gmail.com" },
       to: [{ email: to }],
       subject: "Ton code ReadMe",
       htmlContent: `
