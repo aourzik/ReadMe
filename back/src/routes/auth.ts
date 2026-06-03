@@ -4,7 +4,7 @@ import { Resend } from "resend";
 import { jwtPlugin } from "../middleware/auth";
 import { prisma } from "../utils/prisma";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getResend = () => new Resend(process.env.RESEND_API_KEY!);
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
   .use(jwtPlugin)
@@ -111,7 +111,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       });
 
       // Envoie l'email
-      await resend.emails.send({
+      await getResend().emails.send({
         from: "ReadMe <onboarding@resend.dev>",
         to: email,
         subject: "Ton code ReadMe",
