@@ -48,6 +48,8 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/images/logo_readme.png"
+  adaptive_icon_background: "#F9EDE8"
+  adaptive_icon_foreground: "assets/images/logo_readme.png"
 
 flutter:
   uses-material-design: true
