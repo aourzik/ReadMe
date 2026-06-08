@@ -128,20 +128,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 isDark: isDark,
                 onTap: _submit,
               ),
-              const SizedBox(height: 24),
-              // Divider
-              Row(children: [
-                Expanded(child: Divider(color: isDark ? Colors.white12 : Colors.black12)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('ou', style: AppText.body(size: 11, color: inkMuted).copyWith(letterSpacing: 0.4)),
-                ),
-                Expanded(child: Divider(color: isDark ? Colors.white12 : Colors.black12)),
-              ]),
-              const SizedBox(height: 16),
-              _SocialButton(label: 'Continuer avec Apple', isDark: isDark),
-              const SizedBox(height: 8),
-              _SocialButton(label: 'Continuer avec Google', isDark: isDark),
               const SizedBox(height: 40),
               // Switch
               Center(
@@ -281,24 +267,3 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-class _SocialButton extends StatelessWidget {
-  final String label;
-  final bool isDark;
-  const _SocialButton({required this.label, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final ink = isDark ? AppColors.inkDark : AppColors.inkLight;
-    final border = isDark ? Colors.white.withOpacity(0.16) : Colors.black.withOpacity(0.16);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 13),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: border, width: 0.5),
-      ),
-      child: Text(label, style: AppText.body(size: 14, color: ink).copyWith(fontWeight: FontWeight.w600),
-          textAlign: TextAlign.center),
-    );
-  }
-}
