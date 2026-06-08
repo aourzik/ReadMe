@@ -365,7 +365,7 @@ class _EmptyActivity extends StatelessWidget {
   );
 }
 
-class _ActivityFeed extends StatelessWidget {
+class _ActivityFeed extends StatefulWidget {
   final List<Activity> activities;
   final bool isDark;
   final Color surface, border, ink, inkSoft, inkMuted, accent, accentInk;
@@ -379,67 +379,34 @@ class _ActivityFeed extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final shown = activities.take(6).toList();
-    return Container(
-      decoration: BoxDecoration(
-        color: surface, borderRadius: AppRadius.cardLg,
-        border: Border.all(color: border, width: 0.5),
-        boxShadow: AppShadows.soft(dark: isDark),
-      ),
-      child: Column(
-        children: shown.asMap().entries.map((entry) {
-          final i = entry.key;
-          final a = entry.value;
-          final initials = a.user.name.split(' ').map((w) => w[0]).take(2).join('');
-          final avatarColor = _colorForName(a.user.name);
-          return Column(
-            children: [
-              if (i > 0) Container(height: 0.5, color: border, margin: const EdgeInsets.only(left: 60)),
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(children: [
-                  CircleAvatar(
-                    radius: 18, backgroundColor: avatarColor,
-                    child: Text(initials, style: TextStyle(fontFamily: 'CormorantGaramond',
-                        fontStyle: FontStyle.italic, fontSize: 14, color: Colors.white.withOpacity(0.9))),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      RichText(text: TextSpan(
-                        style: AppText.body(size: 12.5, color: inkSoft).copyWith(height: 1.35),
-                        children: [
-                          TextSpan(text: a.user.name.split(' ').first,
-                              style: AppText.body(size: 12.5, color: ink).copyWith(fontWeight: FontWeight.w600)),
-                          TextSpan(text: ' ${a.actionLabel} '),
-                          if (a.book != null)
-                            TextSpan(text: a.book!.title, style: TextStyle(fontFamily: 'CormorantGaramond',
-                                fontStyle: FontStyle.italic, fontSize: 13.5, color: ink, fontWeight: FontWeight.w500)),
-                        ],
-                      )),
-                      const SizedBox(height: 3),
-                      Text(_timeAgo(a.createdAt), style: AppText.body(size: 10.5, color: inkMuted).copyWith(letterSpacing: 0.2)),
-                    ]),
-                  ),
-                  if (a.showAddButton && a.book != null) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => onAdd(a),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-                        decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(999)),
-                        child: Text('+ Ajouter', style: AppText.body(size: 11, color: accentInk).copyWith(fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                  ],
-                ]),
-              ),
-            ],
-          );
-        }).toList(),
-      ),
-    );
+  State<_ActivityFeed> createState() => _ActivityFeedState();
+}
+
+class _ActivityFeedState extends State<_ActivityFeed> {
+  late List<Activity> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = widget.activities.take(6).toList();
+  }
+
+  @override
+  void didUpdateWidget(_ActivityFeed old) {
+    super.didUpdateWidget(old);
+    if (old.activities != widget.activities) {
+      _items = widget.activities.take(6).toList();
+    }
+  }
+
+  Future<void> _dismiss(Activity a) async {
+    setState(() => _items.removeWhere((item) => item.id == a.id));
+    try {
+      await apiService.dismissActivity(a.id);
+    } catch (_) {
+      // Réintègre l'activité si l'appel échoue
+      if (mounted) setState(() => _items.insert(0, a));
+    }
   }
 
   Color _colorForName(String name) {
@@ -458,6 +425,86 @@ class _ActivityFeed extends StatelessWidget {
     if (diff.inDays == 1) return 'hier';
     if (diff.inDays < 7) return 'il y a ${diff.inDays} jours';
     return 'il y a ${diff.inDays ~/ 7} sem.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_items.isEmpty) return _EmptyActivity(ink: widget.inkMuted);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.surface,
+        borderRadius: AppRadius.cardLg,
+        border: Border.all(color: widget.border, width: 0.5),
+        boxShadow: AppShadows.soft(dark: widget.isDark),
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadius.cardLg,
+        child: Column(
+          children: _items.asMap().entries.map((entry) {
+            final i = entry.key;
+            final a = entry.value;
+            final initials = a.user.name.split(' ').map((w) => w[0]).take(2).join('');
+            final avatarColor = _colorForName(a.user.name);
+            return Dismissible(
+              key: ValueKey(a.id),
+              direction: DismissDirection.endToStart,
+              onDismissed: (_) => _dismiss(a),
+              background: Container(
+                color: const Color(0xFFD94040),
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
+              ),
+              child: Column(
+                children: [
+                  if (i > 0) Container(height: 0.5, color: widget.border, margin: const EdgeInsets.only(left: 60)),
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(children: [
+                      CircleAvatar(
+                        radius: 18, backgroundColor: avatarColor,
+                        child: Text(initials, style: TextStyle(fontFamily: 'CormorantGaramond',
+                            fontStyle: FontStyle.italic, fontSize: 14, color: Colors.white.withOpacity(0.9))),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          RichText(text: TextSpan(
+                            style: AppText.body(size: 12.5, color: widget.inkSoft).copyWith(height: 1.35),
+                            children: [
+                              TextSpan(text: a.user.name.split(' ').first,
+                                  style: AppText.body(size: 12.5, color: widget.ink).copyWith(fontWeight: FontWeight.w600)),
+                              TextSpan(text: ' ${a.actionLabel} '),
+                              if (a.book != null)
+                                TextSpan(text: a.book!.title, style: TextStyle(fontFamily: 'CormorantGaramond',
+                                    fontStyle: FontStyle.italic, fontSize: 13.5, color: widget.ink, fontWeight: FontWeight.w500)),
+                            ],
+                          )),
+                          const SizedBox(height: 3),
+                          Text(_timeAgo(a.createdAt), style: AppText.body(size: 10.5, color: widget.inkMuted).copyWith(letterSpacing: 0.2)),
+                        ]),
+                      ),
+                      if (a.showAddButton && a.book != null) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => widget.onAdd(a),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                            decoration: BoxDecoration(color: widget.accent, borderRadius: BorderRadius.circular(999)),
+                            child: Text('+ Ajouter', style: AppText.body(size: 11, color: widget.accentInk).copyWith(fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ],
+                    ]),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 }
 

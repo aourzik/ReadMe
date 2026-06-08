@@ -203,6 +203,10 @@ class ApiService {
     return (res.data as List).map((a) => Activity.fromJson(a)).toList();
   }
 
+  Future<void> dismissActivity(String activityId) async {
+    await _dio.delete('/friends/activity/$activityId');
+  }
+
   Future<List<Book>> getFriendBooks(String friendId) async {
     final res = await _dio.get('/friends/$friendId/books');
     return (res.data as List).map((b) => Book.fromJson(b)).toList();

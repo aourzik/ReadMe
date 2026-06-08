@@ -45,7 +45,10 @@ export const friendRoutes = new Elysia({ prefix: "/friends" })
     if (friendIds.length === 0) return [];
 
     const activities = await prisma.activity.findMany({
-      where: { userId: { in: friendIds } },
+      where: {
+        userId: { in: friendIds },
+        dismissals: { none: { userId } },
+      },
       include: {
         user: true,
         book: true,
@@ -128,6 +131,16 @@ export const friendRoutes = new Elysia({ prefix: "/friends" })
       data: { status: "DECLINED" },
     });
     return { declined: true };
+  })
+
+  // DELETE /api/friends/activity/:id — masquer une activité
+  .delete("/activity/:id", async ({ userId, params }) => {
+    await prisma.activityDismissal.upsert({
+      where: { userId_activityId: { userId, activityId: params.id } },
+      create: { userId, activityId: params.id },
+      update: {},
+    });
+    return { dismissed: true };
   })
 
   // DELETE /api/friends/:userId — supprimer un ami
