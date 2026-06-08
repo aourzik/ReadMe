@@ -555,6 +555,7 @@ class _ManualAddSheetState extends State<_ManualAddSheet> {
   final _pagesCtrl  = TextEditingController();
   final _descCtrl   = TextEditingController();
   String? _coverBase64;
+  ReadStatus _status = ReadStatus.wishlist;
   bool _saving = false;
 
   @override
@@ -619,7 +620,7 @@ class _ManualAddSheetState extends State<_ManualAddSheet> {
         pages:       int.tryParse(_pagesCtrl.text) ?? 0,
         description: _descCtrl.text.trim(),
         coverUrl:    _coverBase64,
-        status:      ReadStatus.wishlist,
+        status:      _status,
         addedAt:     DateTime.now(),
       ));
       if (mounted) {
@@ -726,6 +727,36 @@ class _ManualAddSheetState extends State<_ManualAddSheet> {
                 ]),
                 const SizedBox(height: 12),
                 _SheetField(label: 'Description', ctrl: _descCtrl, isDark: isDark, ink: ink, inkMuted: inkMuted, surface: surface, border: border, maxLines: 3),
+                const SizedBox(height: 20),
+                Text('Statut', style: AppText.eyebrow(color: inkMuted).copyWith(fontSize: 10.5, letterSpacing: 1.1)),
+                const SizedBox(height: 8),
+                Row(
+                  children: ReadStatus.values.map((s) {
+                    final label = s == ReadStatus.reading ? 'En cours'
+                        : s == ReadStatus.read ? 'Lu' : 'Souhaité';
+                    final isActive = _status == s;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _status = s),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isActive ? ink : Colors.transparent,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: isActive ? Colors.transparent : border, width: 0.5),
+                          ),
+                          child: Text(label,
+                              style: AppText.body(size: 12, color: isActive
+                                  ? (isDark ? AppColors.bgDark : AppColors.bgLight)
+                                  : inkMuted)
+                                  .copyWith(fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
                 const SizedBox(height: 8),
               ]),
             ),
