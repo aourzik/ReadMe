@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/utils/responsive_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
@@ -303,11 +305,51 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
           style: AppText.body(size: 12, color: inkMuted), textAlign: TextAlign.center)),
       data: (books) {
         if (books.isEmpty && _searchCtrl.text.isNotEmpty) {
-          return Center(child: Text('Aucun résultat', style: AppText.body(size: 14, color: inkMuted)));
+          return Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('Aucun résultat', style: AppText.body(size: 14, color: inkMuted)),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () => _showManualAddSheet(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: inkMuted.withOpacity(0.3), width: 0.5),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.edit_outlined, size: 14, color: ink),
+                    const SizedBox(width: 8),
+                    Text('Ajouter manuellement',
+                        style: AppText.body(size: 13, color: ink).copyWith(fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+            ]),
+          );
         }
         if (books.isEmpty) return const SizedBox.shrink();
         return _bookList(books, ink, inkMuted, accentSubtle, accentStrong, surfAlt, showCount: true);
       },
+    );
+  }
+
+  void _showManualAddSheet(BuildContext context) {
+    final isDark = ref.read(themeProvider).isDark;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: _ManualAddSheet(
+          isDark: isDark,
+          onSaved: () {
+            ref.invalidate(booksProvider);
+            if (context.mounted) context.pop();
+          },
+        ),
+      ),
     );
   }
 
@@ -490,6 +532,306 @@ class _BarcodeScanSheetState extends State<_BarcodeScanSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Manual add sheet ─────────────────────────────────────────────────────────
+
+class _ManualAddSheet extends StatefulWidget {
+  final bool isDark;
+  final VoidCallback onSaved;
+  const _ManualAddSheet({required this.isDark, required this.onSaved});
+
+  @override
+  State<_ManualAddSheet> createState() => _ManualAddSheetState();
+}
+
+class _ManualAddSheetState extends State<_ManualAddSheet> {
+  final _titleCtrl  = TextEditingController();
+  final _authorCtrl = TextEditingController();
+  final _yearCtrl   = TextEditingController();
+  final _pagesCtrl  = TextEditingController();
+  final _descCtrl   = TextEditingController();
+  String? _coverBase64;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _authorCtrl.dispose();
+    _yearCtrl.dispose();
+    _pagesCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickCover(ImageSource source) async {
+    final image = await ImagePicker().pickImage(
+      source: source, imageQuality: 60, maxWidth: 400, maxHeight: 600,
+    );
+    if (image == null || !mounted) return;
+    final bytes = await image.readAsBytes();
+    if (mounted) setState(() => _coverBase64 = 'data:image/jpeg;base64,${base64Encode(bytes)}');
+  }
+
+  void _showCoverOptions() {
+    final isDark  = widget.isDark;
+    final bg      = isDark ? AppColors.bgDark : AppColors.bgLight;
+    final ink     = isDark ? AppColors.inkDark : AppColors.inkLight;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(ctx).padding.bottom + 20),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(color: ink.withOpacity(0.1), borderRadius: BorderRadius.circular(2))),
+          _OptionTile(icon: Icons.photo_library_rounded, label: 'Galerie', isDark: isDark,
+              onTap: () { Navigator.pop(ctx); _pickCover(ImageSource.gallery); }),
+          const SizedBox(height: 8),
+          _OptionTile(icon: Icons.camera_alt_rounded, label: 'Appareil photo', isDark: isDark,
+              onTap: () { Navigator.pop(ctx); _pickCover(ImageSource.camera); }),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    if (_titleCtrl.text.trim().isEmpty || _authorCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Titre et auteur sont obligatoires')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await apiService.addBook(Book(
+        id: '',
+        title:       _titleCtrl.text.trim(),
+        author:      _authorCtrl.text.trim(),
+        year:        int.tryParse(_yearCtrl.text) ?? DateTime.now().year,
+        pages:       int.tryParse(_pagesCtrl.text) ?? 0,
+        description: _descCtrl.text.trim(),
+        coverUrl:    _coverBase64,
+        status:      ReadStatus.wishlist,
+        addedAt:     DateTime.now(),
+      ));
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onSaved();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark    = widget.isDark;
+    final bg        = isDark ? AppColors.bgDark : AppColors.bgLight;
+    final ink       = isDark ? AppColors.inkDark : AppColors.inkLight;
+    final inkMuted  = isDark ? AppColors.inkMutedDark : AppColors.inkMutedLight;
+    final surface   = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
+    final border    = isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08);
+    final accent    = isDark ? AppColors.accentRoseDark : AppColors.accentRoseLight;
+    final accentInk = isDark ? AppColors.accentRoseInkDark : AppColors.accentRoseInkLight;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 40, height: 4,
+            margin: const EdgeInsets.only(top: 12, bottom: 4),
+            decoration: BoxDecoration(color: ink.withOpacity(0.1), borderRadius: BorderRadius.circular(2)),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Row(children: [
+              Text('Livre introuvable ?', style: AppText.eyebrow(color: inkMuted)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Icon(Icons.close_rounded, size: 18, color: inkMuted),
+              ),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Renseigne-le manuellement', style: AppText.displaySm(italic: true, color: ink)),
+            ),
+          ),
+
+          // Scrollable fields
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Cover picker
+                GestureDetector(
+                  onTap: _showCoverOptions,
+                  child: Container(
+                    height: 130,
+                    decoration: BoxDecoration(
+                      color: surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _coverBase64 != null ? Colors.transparent : border, width: 0.5),
+                    ),
+                    child: _coverBase64 != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.memory(
+                              base64Decode(_coverBase64!.split(',').last),
+                              fit: BoxFit.cover, width: double.infinity,
+                            ),
+                          )
+                        : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Icon(Icons.add_photo_alternate_rounded, size: 28, color: inkMuted),
+                            const SizedBox(height: 8),
+                            Text('Ajouter une couverture', style: AppText.body(size: 12, color: inkMuted)),
+                            const SizedBox(height: 3),
+                            Text('Galerie ou appareil photo',
+                                style: AppText.body(size: 10.5, color: inkMuted.withOpacity(0.5))),
+                          ]),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _SheetField(label: 'Titre *',   ctrl: _titleCtrl,  isDark: isDark, ink: ink, inkMuted: inkMuted, surface: surface, border: border),
+                const SizedBox(height: 12),
+                _SheetField(label: 'Auteur *',  ctrl: _authorCtrl, isDark: isDark, ink: ink, inkMuted: inkMuted, surface: surface, border: border),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: _SheetField(label: 'Année', ctrl: _yearCtrl, isDark: isDark, ink: ink, inkMuted: inkMuted, surface: surface, border: border, keyboardType: TextInputType.number)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _SheetField(label: 'Pages', ctrl: _pagesCtrl, isDark: isDark, ink: ink, inkMuted: inkMuted, surface: surface, border: border, keyboardType: TextInputType.number)),
+                ]),
+                const SizedBox(height: 12),
+                _SheetField(label: 'Description', ctrl: _descCtrl, isDark: isDark, ink: ink, inkMuted: inkMuted, surface: surface, border: border, maxLines: 3),
+                const SizedBox(height: 8),
+              ]),
+            ),
+          ),
+
+          // Bouton épinglé hors scroll
+          Container(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, safeBottom + 16),
+            decoration: BoxDecoration(
+              color: bg,
+              border: Border(top: BorderSide(color: border, width: 0.5)),
+            ),
+            child: GestureDetector(
+              onTap: _saving ? null : _save,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: AppShadows.soft(dark: isDark),
+                ),
+                child: _saving
+                    ? Center(child: SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: accentInk)))
+                    : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.check_rounded, size: 16, color: accentInk),
+                        const SizedBox(width: 8),
+                        Text('Enregistrer', style: AppText.body(size: 15, color: accentInk).copyWith(fontWeight: FontWeight.w600)),
+                      ]),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetField extends StatelessWidget {
+  final String label;
+  final TextEditingController ctrl;
+  final bool isDark;
+  final Color ink, inkMuted, surface, border;
+  final TextInputType? keyboardType;
+  final int maxLines;
+
+  const _SheetField({
+    required this.label, required this.ctrl, required this.isDark,
+    required this.ink, required this.inkMuted, required this.surface, required this.border,
+    this.keyboardType, this.maxLines = 1,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: AppText.eyebrow(color: inkMuted).copyWith(fontSize: 10.5, letterSpacing: 1.1)),
+      const SizedBox(height: 6),
+      Container(
+        decoration: BoxDecoration(
+          color: surface, borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: border, width: 0.5),
+          boxShadow: AppShadows.soft(dark: isDark),
+        ),
+        child: TextField(
+          controller: ctrl,
+          keyboardType: keyboardType,
+          maxLines: maxLines,
+          style: AppText.body(size: 13.5, color: ink),
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
+class _OptionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _OptionTile({required this.icon, required this.label, required this.isDark, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final ink     = isDark ? AppColors.inkDark : AppColors.inkLight;
+    final surface = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
+    final border  = isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: surface, borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: border, width: 0.5),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 18, color: ink),
+          const SizedBox(width: 14),
+          Text(label, style: AppText.body(size: 14, color: ink).copyWith(fontWeight: FontWeight.w500)),
+        ]),
       ),
     );
   }

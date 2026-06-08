@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
@@ -39,6 +40,18 @@ class BookCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (book.coverUrl != null && book.coverUrl!.isNotEmpty) {
+      if (book.coverUrl!.startsWith('data:image')) {
+        try {
+          final bytes = base64Decode(book.coverUrl!.split(',').last);
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.memory(bytes, width: width, height: height, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _buildTypoCover()),
+          );
+        } catch (_) {
+          return _buildTypoCover();
+        }
+      }
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: CachedNetworkImage(
