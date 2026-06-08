@@ -47,11 +47,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _openEditSheet(BuildContext context, User user, bool isDark) {
+    final safeBottom = MediaQuery.of(context).padding.bottom;
     showResponsiveSheet(
       context: context,
       builder: (_) => _EditProfileSheet(
         user: user,
         isDark: isDark,
+        safeBottom: safeBottom,
         onSaved: () => ref.invalidate(meProvider),
       ),
     );
@@ -414,8 +416,12 @@ class _EditProfileSheet extends StatefulWidget {
   final User user;
   final bool isDark;
   final VoidCallback onSaved;
+  final double safeBottom;
 
-  const _EditProfileSheet({required this.user, required this.isDark, required this.onSaved});
+  const _EditProfileSheet({
+    required this.user, required this.isDark, required this.onSaved,
+    this.safeBottom = 0,
+  });
 
   @override
   State<_EditProfileSheet> createState() => _EditProfileSheetState();
@@ -492,127 +498,139 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     final accent    = isDark ? AppColors.accentRoseDark : AppColors.accentRoseLight;
     final accentInk = isDark ? AppColors.accentRoseInkDark : AppColors.accentRoseInkLight;
 
+    final safeBottom = widget.safeBottom;
+
     return Container(
       decoration: BoxDecoration(
         color: bg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            20, 16, 20,
-            24 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom,
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Handle
-            Center(child: Container(
-              width: 36, height: 4,
-              decoration: BoxDecoration(color: border, borderRadius: BorderRadius.circular(2)),
-            )),
-            const SizedBox(height: 20),
-            Text('Modifier le profil', style: AppText.displayMd(italic: true, color: ink)),
-            const SizedBox(height: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Scrollable fields
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8 + MediaQuery.of(context).viewInsets.bottom),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Handle
+                Center(child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(color: border, borderRadius: BorderRadius.circular(2)),
+                )),
+                const SizedBox(height: 20),
+                Text('Modifier le profil', style: AppText.displayMd(italic: true, color: ink)),
+                const SizedBox(height: 24),
 
-            // Fields
-            _SheetField(label: 'Nom',   ctrl: _nameCtrl,     isDark: isDark),
-            const SizedBox(height: 14),
-            _SheetField(label: 'Pseudo', ctrl: _handleCtrl,  isDark: isDark, prefix: '@'),
-            const SizedBox(height: 14),
-            _SheetField(label: 'Ville', ctrl: _locationCtrl, isDark: isDark),
-            const SizedBox(height: 22),
+                // Fields
+                _SheetField(label: 'Nom',    ctrl: _nameCtrl,     isDark: isDark),
+                const SizedBox(height: 14),
+                _SheetField(label: 'Pseudo', ctrl: _handleCtrl,   isDark: isDark, prefix: '@'),
+                const SizedBox(height: 14),
+                _SheetField(label: 'Ville',  ctrl: _locationCtrl, isDark: isDark),
+                const SizedBox(height: 22),
 
-            // Objectif
-            Row(children: [
-              Text('Objectif ${DateTime.now().year}', style: AppText.eyebrow(color: inkMuted)),
-              const Spacer(),
-              Row(children: [
-                GestureDetector(
-                  onTap: () { if (_goal > 1) setState(() => _goal--); },
-                  child: Container(
-                    width: 30, height: 30,
-                    decoration: BoxDecoration(color: surfAlt, borderRadius: BorderRadius.circular(999)),
-                    child: Icon(Icons.remove_rounded, size: 14, color: ink),
+                // Objectif
+                Row(children: [
+                  Text('Objectif ${DateTime.now().year}', style: AppText.eyebrow(color: inkMuted)),
+                  const Spacer(),
+                  Row(children: [
+                    GestureDetector(
+                      onTap: () { if (_goal > 1) setState(() => _goal--); },
+                      child: Container(
+                        width: 30, height: 30,
+                        decoration: BoxDecoration(color: surfAlt, borderRadius: BorderRadius.circular(999)),
+                        child: Icon(Icons.remove_rounded, size: 14, color: ink),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 44,
+                      child: Text('$_goal', textAlign: TextAlign.center,
+                          style: TextStyle(fontFamily: 'CormorantGaramond', fontStyle: FontStyle.italic,
+                              fontSize: 22, fontWeight: FontWeight.w500, color: ink)),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _goal++),
+                      child: Container(
+                        width: 30, height: 30,
+                        decoration: BoxDecoration(color: surfAlt, borderRadius: BorderRadius.circular(999)),
+                        child: Icon(Icons.add_rounded, size: 14, color: ink),
+                      ),
+                    ),
+                  ]),
+                ]),
+                const SizedBox(height: 26),
+
+                // Genres
+                Text('Genres préférés', style: AppText.eyebrow(color: inkMuted)),
+                const SizedBox(height: 12),
+                if (_genres.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 8, runSpacing: 8,
+                    children: _genres.map((g) => GestureDetector(
+                      onTap: () => setState(() => _genres.remove(g)),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: accent.withOpacity(0.15),
+                          border: Border.all(color: accent.withOpacity(0.3), width: 0.5),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Text(g, style: AppText.body(size: 12, color: ink).copyWith(fontWeight: FontWeight.w500)),
+                          const SizedBox(width: 4),
+                          Icon(Icons.close_rounded, size: 12, color: inkMuted),
+                        ]),
+                      ),
+                    )).toList(),
                   ),
-                ),
-                SizedBox(
-                  width: 44,
-                  child: Text('$_goal', textAlign: TextAlign.center,
-                      style: TextStyle(fontFamily: 'CormorantGaramond', fontStyle: FontStyle.italic,
-                          fontSize: 22, fontWeight: FontWeight.w500, color: ink)),
-                ),
-                GestureDetector(
-                  onTap: () => setState(() => _goal++),
-                  child: Container(
-                    width: 30, height: 30,
-                    decoration: BoxDecoration(color: surfAlt, borderRadius: BorderRadius.circular(999)),
-                    child: Icon(Icons.add_rounded, size: 14, color: ink),
-                  ),
-                ),
-              ]),
-            ]),
-            const SizedBox(height: 26),
-
-            // Genres
-            Text('Genres préférés', style: AppText.eyebrow(color: inkMuted)),
-            const SizedBox(height: 12),
-            if (_genres.isNotEmpty) ...[
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: _genres.map((g) => GestureDetector(
-                  onTap: () => setState(() => _genres.remove(g)),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  const SizedBox(height: 12),
+                ],
+                Row(children: [
+                  Expanded(child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      color: accent.withOpacity(0.15),
-                      border: Border.all(color: accent.withOpacity(0.3), width: 0.5),
+                      color: surfAlt, borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: border, width: 0.5),
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(g, style: AppText.body(size: 12, color: ink)
-                          .copyWith(fontWeight: FontWeight.w500)),
-                      const SizedBox(width: 4),
-                      Icon(Icons.close_rounded, size: 12, color: inkMuted),
+                    child: Row(children: [
+                      const SizedBox(width: 12),
+                      Expanded(child: TextField(
+                        controller: _genreCtrl,
+                        style: AppText.body(size: 13, color: ink),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Roman, SF, Policier…',
+                          hintStyle: AppText.body(size: 13, color: inkMuted),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                        ),
+                        onSubmitted: (_) => _addGenre(),
+                      )),
+                      const SizedBox(width: 8),
                     ]),
-                  ),
-                )).toList(),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Row(children: [
-              Expanded(child: Container(
-                decoration: BoxDecoration(
-                  color: surfAlt, borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: border, width: 0.5),
-                ),
-                child: Row(children: [
-                  const SizedBox(width: 12),
-                  Expanded(child: TextField(
-                    controller: _genreCtrl,
-                    style: AppText.body(size: 13, color: ink),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: 'Roman, SF, Policier…',
-                      hintStyle: AppText.body(size: 13, color: inkMuted),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 11),
-                    ),
-                    onSubmitted: (_) => _addGenre(),
                   )),
                   const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _addGenre,
+                    child: Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(999)),
+                      child: Icon(Icons.add_rounded, size: 18, color: accentInk),
+                    ),
+                  ),
                 ]),
-              )),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _addGenre,
-                child: Container(
-                  width: 38, height: 38,
-                  decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(999)),
-                  child: Icon(Icons.add_rounded, size: 18, color: accentInk),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 30),
+                const SizedBox(height: 8),
+              ]),
+            ),
+          ),
 
-            // Save
-            GestureDetector(
+          // Bouton épinglé hors scroll
+          Container(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, safeBottom + 16),
+            decoration: BoxDecoration(
+              color: bg,
+              border: Border(top: BorderSide(color: border, width: 0.5)),
+            ),
+            child: GestureDetector(
               onTap: _loading ? null : _save,
               child: Container(
                 width: double.infinity,
@@ -631,8 +649,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                             .copyWith(fontWeight: FontWeight.w600)),
               ),
             ),
-          ]),
-        ),
+          ),
+        ],
+      ),
     );
   }
 }

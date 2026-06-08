@@ -12,6 +12,7 @@ Future<T?> showResponsiveSheet<T>({
     context: context,
     isScrollControlled: isScrollControlled,
     isDismissible: isDismissible,
+    useRootNavigator: true,
     backgroundColor: Colors.transparent,
     constraints: w >= 600
         ? const BoxConstraints(maxWidth: 560)
